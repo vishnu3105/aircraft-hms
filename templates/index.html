@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aircraft Health Monitoring System</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --bg: #080808;
+            --bg-card: #111111;
+            --bg-input: #1a1a1a;
+            --border: rgba(255,255,255,0.07);
+            --text-primary: #ffffff;
+            --text-secondary: rgba(255,255,255,0.45);
+            --text-muted: rgba(255,255,255,0.2);
+            --healthy: #30d158;
+            --warning: #ffd60a;
+            --critical: #ff453a;
+            --accent: #76b900;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text-primary);
+            font-family: 'Inter', sans-serif;
+            min-height: 100vh;
+            padding: 32px;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 40px;
+        }
+
+        .title {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 28px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            color: var(--text-primary);
+        }
+
+        .title span { color: var(--accent); }
+
+        .subtitle {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        .live-badge {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            padding: 6px 12px;
+            background: rgba(118,185,0,0.1);
+            border: 0.5px solid rgba(118,185,0,0.2);
+            border-radius: 4px;
+        }
+
+        .live-dot {
+            width: 5px; height: 5px;
+            background: var(--accent);
+            border-radius: 50%;
+            animation: blink 1.8s ease-in-out infinite;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        .live-text {
+            font-size: 11px;
+            font-weight: 500;
+            color: var(--accent);
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        /* STATS ROW */
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-bottom: 32px;
+        }
+
+        .stat-card {
+            background: var(--bg-card);
+            border: 0.5px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+        }
+
+        .stat-label {
+            font-size: 11px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-bottom: 8px;
+        }
+
+        .stat-num {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 32px;
+            font-weight: 700;
+            letter-spacing: -1px;
+        }
+
+        .stat-num.healthy { color: var(--healthy); }
+        .stat-num.warning { color: var(--warning); }
+        .stat-num.critical { color: var(--critical); }
+
+        /* SECTION */
+        .section-label {
+            font-size: 11px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-bottom: 14px;
+        }
+
+        /* ENGINE GRID */
+        .engine-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+            gap: 12px;
+        }
+
+        .engine-card {
+            background: var(--bg-card);
+            border: 0.5px solid var(--border);
+            border-radius: 14px;
+            padding: 18px;
+            transition: border-color 0.2s;
+        }
+
+        .engine-card:hover { border-color: rgba(255,255,255,0.12); }
+
+        .engine-card.critical { border-color: rgba(255,69,58,0.3); }
+        .engine-card.warning { border-color: rgba(255,214,10,0.2); }
+
+        .engine-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 14px;
+        }
+
+        .engine-name {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .status-pill {
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .pill-healthy { background: rgba(48,209,88,0.12); color: var(--healthy); }
+        .pill-warning { background: rgba(255,214,10,0.12); color: var(--warning); }
+        .pill-critical { background: rgba(255,69,58,0.12); color: var(--critical); }
+
+        /* RUL bar */
+        .rul-label {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .rul-bar {
+            width: 100%;
+            height: 4px;
+            background: rgba(255,255,255,0.06);
+            border-radius: 2px;
+            overflow: hidden;
+            margin-bottom: 8px;
+        }
+
+        .rul-fill {
+            height: 100%;
+            border-radius: 2px;
+            transition: width 0.5s ease;
+        }
+
+        .rul-numbers {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+        }
+
+        .rul-predicted {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 22px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+
+        .rul-actual {
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        /* Search */
+        .controls {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .search-input {
+            padding: 10px 14px;
+            background: var(--bg-card);
+            border: 0.5px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-family: 'Inter', sans-serif;
+            font-size: 13px;
+            outline: none;
+            width: 220px;
+        }
+
+        .search-input::placeholder { color: var(--text-muted); }
+        .search-input:focus { border-color: rgba(118,185,0,0.3); }
+
+        .filter-btn {
+            padding: 10px 14px;
+            background: transparent;
+            border: 0.5px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-secondary);
+            font-family: 'Inter', sans-serif;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .filter-btn:hover, .filter-btn.active {
+            border-color: rgba(118,185,0,0.3);
+            color: var(--accent);
+            background: rgba(118,185,0,0.05);
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <div>
+        <div class="title">Aircraft <span>Health</span> Monitor</div>
+        <div class="subtitle">NASA CMAPSS · FD001 · Random Forest Model</div>
+    </div>
+    <div class="live-badge">
+        <div class="live-dot"></div>
+        <div class="live-text">ML Active</div>
+    </div>
+</div>
+
+<!-- STATS -->
+<div class="stats-row">
+    <div class="stat-card">
+        <div class="stat-label">Healthy Engines</div>
+        <div class="stat-num healthy" id="healthy-count">-</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Warning</div>
+        <div class="stat-num warning" id="warning-count">-</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Critical</div>
+        <div class="stat-num critical" id="critical-count">-</div>
+    </div>
+</div>
+
+<!-- CONTROLS -->
+<div class="controls">
+    <input class="search-input" type="text" placeholder="Search engine ID..." id="search">
+    <button class="filter-btn active" onclick="filterEngines('all', this)">All</button>
+    <button class="filter-btn" onclick="filterEngines('critical', this)">Critical</button>
+    <button class="filter-btn" onclick="filterEngines('warning', this)">Warning</button>
+    <button class="filter-btn" onclick="filterEngines('healthy', this)">Healthy</button>
+</div>
+
+<div class="section-label">Engine Fleet — Remaining Useful Life Predictions</div>
+<div class="engine-grid" id="engine-grid"></div>
+
+<script>
+    let allEngines = [];
+    let currentFilter = 'all';
+
+    function getRulColor(status) {
+        if (status === 'critical') return '#ff453a';
+        if (status === 'warning') return '#ffd60a';
+        return '#30d158';
+    }
+
+    function getRulPercent(rul) {
+        return Math.min((rul / 200) * 100, 100);
+    }
+
+    function renderEngines(engines) {
+        const grid = document.getElementById('engine-grid');
+        grid.innerHTML = '';
+
+        engines.forEach(e => {
+            const color = getRulColor(e.status);
+            const percent = getRulPercent(e.predicted_rul);
+
+            const card = document.createElement('div');
+            card.className = `engine-card ${e.status}`;
+            card.innerHTML = `
+                <div class="engine-top">
+                    <div class="engine-name">Engine ${e.engine_id}</div>
+                    <div class="status-pill pill-${e.status}">${e.status}</div>
+                </div>
+                <div class="rul-label">Remaining Useful Life</div>
+                <div class="rul-bar">
+                    <div class="rul-fill" style="width:${percent}%; background:${color};"></div>
+                </div>
+                <div class="rul-numbers">
+                    <div class="rul-predicted" style="color:${color}">${e.predicted_rul} cycles</div>
+                    <div class="rul-actual">Actual: ${e.actual_rul}</div>
+                </div>
+            `;
+            grid.appendChild(card);
+        });
+    }
+
+    function filterEngines(status, btn) {
+        currentFilter = status;
+        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+
+        const filtered = status === 'all'
+            ? allEngines
+            : allEngines.filter(e => e.status === status);
+        renderEngines(filtered);
+    }
+
+    function updateStats(engines) {
+        document.getElementById('healthy-count').innerText = engines.filter(e => e.status === 'healthy').length;
+        document.getElementById('warning-count').innerText = engines.filter(e => e.status === 'warning').length;
+        document.getElementById('critical-count').innerText = engines.filter(e => e.status === 'critical').length;
+    }
+
+    // Search
+    document.getElementById('search').addEventListener('input', function() {
+        const val = this.value.toLowerCase();
+        const filtered = allEngines.filter(e =>
+            String(e.engine_id).includes(val)
+        );
+        if (currentFilter !== 'all') {
+            renderEngines(filtered.filter(e => e.status === currentFilter));
+        } else {
+            renderEngines(filtered);
+        }
+    });
+
+    // Load data
+    fetch('/engines')
+        .then(res => res.json())
+        .then(data => {
+            allEngines = data;
+            updateStats(data);
+            renderEngines(data);
+        });
+</script>
+
+</body>
+</html>
