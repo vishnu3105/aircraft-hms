@@ -46,6 +46,26 @@ def engines():
             'status': status
         })
     return jsonify(data)
+@app.route('/predict', methods=['POST'])
+def predict():
+    from flask import request
+    data = request.get_json()
+    sensors = data['sensors']
+    prediction = model.predict([sensors])[0]
+    prediction = int(prediction)
+    
+    if prediction <= 30:
+        status = 'critical'
+    elif prediction <= 80:
+        status = 'warning'
+    else:
+        status = 'healthy'
+    
+    return jsonify({
+        'rul': prediction,
+        'status': status
+    })
 
 if __name__ == '__main__':
     app.run(debug=False)
+

@@ -252,6 +252,47 @@
             color: var(--accent);
             background: rgba(118,185,0,0.05);
         }
+        .scenario-btn {
+    padding: 9px 16px;
+    background: transparent;
+    border: 0.5px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-secondary);
+    font-family: 'Inter', sans-serif;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.scenario-btn:hover, .scenario-btn.active {
+    border-color: rgba(118,185,0,0.4);
+    color: var(--accent);
+    background: rgba(118,185,0,0.06);
+}
+
+.sensor-input {
+    padding: 8px 10px;
+    background: var(--bg-input);
+    border: 0.5px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-family: 'Inter', sans-serif;
+    font-size: 12px;
+    outline: none;
+    width: 100%;
+    transition: border-color 0.2s;
+}
+
+.sensor-input:focus { border-color: rgba(118,185,0,0.3); }
+.sensor-input:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.sensor-label {
+    font-size: 10px;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
     </style>
 </head>
 <body>
@@ -375,7 +416,173 @@
             updateStats(data);
             renderEngines(data);
         });
+        // Sensor names
+const sensorNames = ['s2','s3','s4','s6','s7','s8','s9','s11','s12','s13','s14','s15','s17'];// Preset scenarios
+const scenarios = {
+    healthy: [641.82, 1589.7, 1400.6, 21.61, 554.36, 2388.06, 9046.19, 47.47, 521.66, 2388.02, 8138.62, 8.4195, 392.0],
+    warning: [642.66, 1586.46, 1401.84, 21.61, 553.19, 2388.06, 9051.28, 47.22, 521.9, 2388.08, 8131.52, 8.4445, 394.0],
+    critical: [643.33, 1591.71, 1413.73, 21.61, 551.69, 2388.24, 9039.1, 48.07, 520.54, 2388.26, 8120.08, 8.4595, 393.0]
+};
+
+// Build sensor inputs
+function buildInputs(values, disabled) {
+    const container = document.getElementById('sensor-inputs');
+    container.innerHTML = '';
+    sensorNames.forEach((name, i) => {
+        const div = document.createElement('div');
+        div.innerHTML = `
+            <div class="sensor-label">${name}</div>
+            <input class="sensor-input" type="number" id="input-${name}" 
+                value="${values ? values[i].toFixed(2) : ''}" 
+                ${disabled ? 'disabled' : ''}
+                step="0.01">
+        `;
+        container.appendChild(div);
+    });
+}
+
+function loadScenario(type, btn) {
+    document.querySelectorAll('.scenario-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+
+    if (type === 'custom') {
+        buildInputs(null, false);
+    } else {
+        buildInputs(scenarios[type], false);
+    }
+}
+
+function predict() {
+    const sensors = sensorNames.map(name => {
+        return parseFloat(document.getElementById('input-' + name).value) || 0;
+    });
+
+    fetch('/predict', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sensors })
+    })
+    .then(res => res.json())
+    .then(data => {
+        const rul = data.rul;
+        const status = data.status;
+
+        const colors = {
+            healthy: '#30d158',
+            warning: '#ffd60a',
+            critical: '#ff453a'
+        };
+
+        const recommendations = {
+            healthy: { text: 'Engine is in good condition. No immediate action required. Continue regular monitoring.', bg: 'rgba(48,209,88,0.08)', color: '#30d158' },
+            warning: { text: 'Engine showing signs of degradation. Schedule maintenance within next 30 cycles.', bg: 'rgba(255,214,10,0.08)', color: '#ffd60a' },
+            critical: { text: 'CRITICAL: Engine approaching end of life. Ground immediately and perform full inspection.', bg: 'rgba(255,69,58,0.08)', color: '#ff453a' }
+        };
+
+        const color = colors[status];
+        const rec = recommendations[status];
+        const percent = Math.min((rul / 200) * 100, 100);
+
+        document.getElementById('result-panel').style.display = 'block';
+        document.getElementById('result-rul').innerText = rul;
+        document.getElementById('result-rul').style.color = color;
+
+        const statusEl = document.getElementById('result-status');
+        statusEl.innerText = status.toUpperCase();
+        statusEl.style.color = color;
+        statusEl.style.background = `${color}15`;
+
+        const bar = document.getElementById('result-bar');
+        bar.style.width = percent + '%';
+        bar.style.background = color;
+
+        const recEl = document.getElementById('result-recommendation');
+        recEl.innerText = rec.text;
+        recEl.style.background = rec.bg;
+        recEl.style.color = rec.color;
+        recEl.style.border = `0.5px solid ${color}30`;
+
+        document.getElementById('result-panel').scrollIntoView({ behavior: 'smooth' });
+    });
+}
+
+// Load healthy by default
+buildInputs(scenarios.healthy, false);
+document.querySelectorAll('.scenario-btn')[0].classList.add('active');
 </script>
+<!-- PREDICTION PANEL -->
+<div style="margin-top: 40px;">
+    <div class="section-label">Live Engine RUL Predictor</div>
+
+    <div style="background: var(--bg-card); border: 0.5px solid var(--border); border-radius: 16px; padding: 28px; margin-bottom: 20px;">
+        
+        <!-- Scenario buttons -->
+        <div style="margin-bottom: 24px;">
+            <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 12px;">Select Scenario</div>
+            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                <button class="scenario-btn" onclick="loadScenario('healthy', this)">Healthy Engine</button>
+                <button class="scenario-btn" onclick="loadScenario('warning', this)">Degrading Engine</button>
+                <button class="scenario-btn" onclick="loadScenario('critical', this)">Critical Engine</button>
+                <button class="scenario-btn" onclick="loadScenario('custom', this)">Custom Input</button>
+            </div>
+        </div>
+
+        <!-- Sensor inputs -->
+        <div style="margin-bottom: 24px;">
+            <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 12px;">Sensor Values</div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px;" id="sensor-inputs">
+            </div>
+        </div>
+
+        <!-- Predict button -->
+        <button onclick="predict()" style="
+            padding: 13px 32px;
+            background: var(--accent);
+            border: none;
+            border-radius: 8px;
+            color: #0a0a0a;
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+            width: 100%;
+        ">Predict RUL →</button>
+
+    </div>
+
+    <!-- Result -->
+    <div id="result-panel" style="display:none; background: var(--bg-card); border: 0.5px solid var(--border); border-radius: 16px; padding: 28px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 20px;">
+            
+            <div>
+                <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px;">Predicted RUL</div>
+                <div id="result-rul" style="font-family: 'Space Grotesk', sans-serif; font-size: 64px; font-weight: 700; letter-spacing: -2px; color: white;">--</div>
+                <div style="font-size: 13px; color: var(--text-muted);">cycles remaining</div>
+            </div>
+
+            <div style="text-align: center;">
+                <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 12px;">Engine Status</div>
+                <div id="result-status" style="font-family: 'Space Grotesk', sans-serif; font-size: 24px; font-weight: 700; padding: 12px 28px; border-radius: 8px;">--</div>
+            </div>
+
+            <div style="flex: 1; min-width: 200px;">
+                <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 12px;">Health Gauge</div>
+                <div style="width: 100%; height: 8px; background: rgba(255,255,255,0.06); border-radius: 4px; overflow: hidden;">
+                    <div id="result-bar" style="height: 100%; border-radius: 4px; transition: width 0.8s ease, background 0.5s ease; width: 0%;"></div>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-top: 6px;">
+                    <div style="font-size: 10px; color: var(--text-muted);">Critical</div>
+                    <div style="font-size: 10px; color: var(--text-muted);">Healthy</div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Recommendation -->
+        <div id="result-recommendation" style="margin-top: 20px; padding: 14px; border-radius: 8px; font-size: 13px;"></div>
+    </div>
+</div>
 
 </body>
 </html>
