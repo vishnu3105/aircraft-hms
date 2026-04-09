@@ -1,25 +1,43 @@
-from flask import Flask, render_template, jsonify
+from flask import Flask, render_template, jsonify, request
 import pandas as pd
 import numpy as np
+from xgboost import XGBRegressor
 import pickle
+import os
 
 app = Flask(__name__)
 
-# Load model
-with open('model.pkl', 'rb') as f:
-    model = pickle.load(f)
-
-# Load test data
+# Column names
 columns = ['engine_id', 'cycle', 'setting1', 'setting2', 'setting3',
            's1','s2','s3','s4','s5','s6','s7','s8','s9','s10',
            's11','s12','s13','s14','s15','s16','s17','s18','s19','s20','s21']
 
-test = pd.read_csv('test_FD001.txt', sep='\s+', header=None, names=columns)
-rul_actual = pd.read_csv('RUL_FD001.txt', header=None, names=['RUL'])
-
 drop_cols = ['engine_id', 'cycle', 'setting1', 'setting2', 'setting3',
              's1', 's5', 's10', 's16', 's18', 's19', 's20', 's21']
 
+feature_names = ['s2','s3','s4','s6','s7','s8','s9','s11','s12','s13','s14','s15','s17']
+
+# Load and train
+print("Loading data and training model...")
+train = pd.read_csv('train_FD001.txt', sep=r'\s+', header=None, names=columns)
+test = pd.read_csv('test_FD001.txt', sep=r'\s+', header=None, names=columns)
+rul_actual = pd.read_csv('RUL_FD001.txt', header=None, names=['RUL'])
+
+max_cycles = train.groupby('engine_id')['cycle'].max().reset_index()
+max_cycles.columns = ['engine_id', 'max_cycle']
+train = train.merge(max_cycles, on='engine_id')
+train['RUL'] = train['max_cycle'] - train['cycle']
+train['RUL'] = train['RUL'].clip(upper=125)
+train = train.drop(columns=drop_cols)
+
+X_train = train.drop(columns=['RUL'])
+y_train = train['RUL']
+
+model = XGBRegressor(n_estimators=200, learning_rate=0.05, random_state=42)
+model.fit(X_train, y_train)
+print("Model trained!")
+
+# Predictions for dashboard
 test_last = test.groupby('engine_id').last().reset_index()
 X_test = test_last.drop(columns=drop_cols)
 predictions = model.predict(X_test).astype(int)
@@ -38,7 +56,6 @@ def engines():
             status = 'warning'
         else:
             status = 'healthy'
-        
         data.append({
             'engine_id': i + 1,
             'predicted_rul': int(pred),
@@ -46,26 +63,22 @@ def engines():
             'status': status
         })
     return jsonify(data)
+
 @app.route('/predict', methods=['POST'])
 def predict():
-    from flask import request
     data = request.get_json()
     sensors = data['sensors']
-    prediction = model.predict([sensors])[0]
-    prediction = int(prediction)
-    
+    input_df = pd.DataFrame([sensors], columns=feature_names)
+    prediction = int(model.predict(input_df)[0])
+
     if prediction <= 30:
         status = 'critical'
     elif prediction <= 80:
         status = 'warning'
     else:
         status = 'healthy'
-    
-    return jsonify({
-        'rul': prediction,
-        'status': status
-    })
+
+    return jsonify({'rul': prediction, 'status': status})
 
 if __name__ == '__main__':
     app.run(debug=False)
-
