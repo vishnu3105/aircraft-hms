@@ -2,4 +2,3 @@ aircraft/
 __pycache__/
 *.pkl
 *.pyc
-*.txt
