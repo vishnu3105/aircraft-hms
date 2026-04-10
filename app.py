@@ -4,6 +4,9 @@ import numpy as np
 from xgboost import XGBRegressor
 import pickle
 import os
+from groq import Groq
+groq_client = Groq(api_key="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")
+
 
 app = Flask(__name__)
 
@@ -82,6 +85,42 @@ def predict():
         status = 'healthy'
 
     return jsonify({'rul': prediction, 'status': status})
+
+@app.route('/analyze', methods=['POST'])
+def analyze():
+    data = request.get_json()
+    rul = data['rul']
+    status = data['status']
+    sensors = data['sensors']
+    
+    prompt = f"""You are ARIA — Aircraft Risk Intelligence Analyst. You speak like a sharp, confident AI system. Direct. No fluff. Think Jarvis meets a fighter pilot.
+
+Engine {data.get('engine_id', 'Unknown')} just came in for analysis.
+
+Data:
+- RUL: {rul} cycles remaining
+- Status: {status.upper()}
+- Exhaust temp (s4): {sensors[2]}
+- Fan speed (s7): {sensors[4]}  
+- Pressure ratio (s3): {sensors[1]}
+- Core speed (s11): {sensors[7]}
+
+Give a 3 line verdict:
+Line 1 — What's happening to this engine right now (specific, technical)
+Line 2 — How serious is it and why
+Line 3 — Exact action required. No maybe. No suggest. Command.
+
+Sound like the engine's life depends on this analysis. Because it does."""
+
+    response = groq_client.chat.completions.create(
+        model="llama-3.3-70b-versatile",    
+        messages=[{"role": "user", "content": prompt}],
+        max_tokens=150
+    )
+    
+    analysis = response.choices[0].message.content
+    return jsonify({'analysis': analysis})
+
 
 if __name__ == '__main__':
     app.run(debug=False)
