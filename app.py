@@ -5,9 +5,14 @@ from xgboost import XGBRegressor
 import pickle
 import os
 from groq import Groq
+<<<<<<< HEAD
 groq_client = Groq(api_key="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")
 
+=======
+>>>>>>> 75de74b (use env variable for api key)
 
+import os
+groq_client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 app = Flask(__name__)
 
 # Column names
@@ -87,12 +92,18 @@ def predict():
     return jsonify({'rul': prediction, 'status': status})
 
 @app.route('/analyze', methods=['POST'])
+<<<<<<< HEAD
+=======
+
+@app.route('/analyze', methods=['POST'])
+>>>>>>> 75de74b (use env variable for api key)
 def analyze():
     data = request.get_json()
     rul = data['rul']
     status = data['status']
     sensors = data['sensors']
     
+<<<<<<< HEAD
     prompt = f"""You are ARIA — Aircraft Risk Intelligence Analyst. You speak like a sharp, confident AI system. Direct. No fluff. Think Jarvis meets a fighter pilot.
 
 Engine {data.get('engine_id', 'Unknown')} just came in for analysis.
@@ -114,13 +125,29 @@ Sound like the engine's life depends on this analysis. Because it does."""
 
     response = groq_client.chat.completions.create(
         model="llama-3.3-70b-versatile",    
+=======
+    prompt = f"""You are an aircraft engine health analyst. Analyze this engine data and explain in 2-3 sentences what's happening and what action to take.
+
+Engine Data:
+- Remaining Useful Life: {rul} cycles
+- Status: {status}
+- Key sensors: s2={sensors[0]}, s3={sensors[1]}, s4={sensors[2]}, s7={sensors[4]}, s11={sensors[7]}
+
+Be specific, technical but understandable. Sound like a real aviation engineer."""
+
+    response = groq_client.chat.completions.create(
+        model="llama-3.3-70b-versatile",
+>>>>>>> 75de74b (use env variable for api key)
         messages=[{"role": "user", "content": prompt}],
         max_tokens=150
     )
     
     analysis = response.choices[0].message.content
     return jsonify({'analysis': analysis})
+<<<<<<< HEAD
 
 
+=======
+>>>>>>> 75de74b (use env variable for api key)
 if __name__ == '__main__':
     app.run(debug=False)
