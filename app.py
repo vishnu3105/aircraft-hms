@@ -87,8 +87,6 @@ def predict():
     return jsonify({'rul': prediction, 'status': status})
 
 @app.route('/analyze', methods=['POST'])
-
-@app.route('/analyze', methods=['POST'])
 def analyze():
     data = request.get_json()
     rul = data['rul']
