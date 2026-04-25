@@ -677,6 +677,15 @@
 
     <div class="engine-grid" id="engine-grid"></div>
 
+<!-- ANOMALY SECTION -->
+<div class="section-header" style="margin-top:40px;">
+    <div class="section-tag" style="color:var(--red); border-color:rgba(255,59,48,0.3);">Anomaly Detection</div>
+    <div class="section-line"></div>
+    <div style="font-size:10px; color:var(--text-muted); letter-spacing:0.08em;">SENSORS DEVIATING >2σ FROM FLEET AVERAGE</div>
+</div>
+
+<div class="engine-grid" id="anomaly-grid"></div>
+
     <!-- PREDICTOR -->
     <div class="section-header">
         <div class="section-tag">Manual RUL Predictor</div>
@@ -749,6 +758,17 @@
                     <div class="modal-stat-label">Actual RUL</div>
                     <div class="modal-stat-val" id="modal-actual" style="color:var(--text-dim);">—</div>
                     <div style="font-size:10px; color:var(--text-muted); margin-top:4px;">ground truth</div>
+                    <div class="modal-stat" style="grid-column: span 2;">
+    <div class="modal-stat-label">95% Confidence Interval</div>
+    <div style="display:flex; align-items:center; gap:12px; margin-top:8px;">
+        <div style="font-family:var(--display); font-size:24px; font-weight:700; color:var(--text-dim);" id="modal-lower">—</div>
+        <div style="flex:1; height:3px; background:rgba(255,255,255,0.05); border-radius:2px; position:relative;">
+            <div id="modal-ci-bar" style="position:absolute; height:100%; background:var(--accent); border-radius:2px;"></div>
+        </div>
+        <div style="font-family:var(--display); font-size:24px; font-weight:700; color:var(--text-dim);" id="modal-upper">—</div>
+    </div>
+    <div style="font-size:10px; color:var(--text-muted); margin-top:6px; letter-spacing:0.06em;">LOWER BOUND — UPPER BOUND · CYCLES</div>
+</div>
                 </div>
             </div>
 
@@ -831,6 +851,8 @@
             document.getElementById('hdr-warning').innerText = warning;
             document.getElementById('hdr-healthy').innerText = healthy;
 
+            speakAlert(critical);
+
             const grid = document.getElementById('engine-grid');
             allEngines.forEach((e, i) => {
                 const card = document.createElement('div');
@@ -850,16 +872,16 @@
                         <div class="progress-fill" style="width:${getPercent(e.predicted_rul)}%; background:${getColor(e.status)};"></div>
                     </div>
                     <div class="engine-meta">
-                        <span>ACTUAL: ${e.actual_rul} cycles</span>
-                        <span>→ CLICK FOR ANALYSIS</span>
-                    </div>
-                `;
+    <span>ACTUAL: ${e.actual_rul} cycles</span>
+    <span style="color:var(--text-muted);">95% CI: ${e.lower_bound}—${e.upper_bound}</span>
+</div>
+                 `;
                 grid.appendChild(card);
             });
         });
 
     // Modal
-    function openModal(engine) {
+    function openModal(engine, flaggedSensors = []) {
         document.getElementById('modal').classList.add('open');
         document.getElementById('modal-title').innerText = `ENG-${String(engine.engine_id).padStart(3,'0')}`;
         document.getElementById('modal-title').style.color = getColor(engine.status);
@@ -869,6 +891,8 @@
         rulEl.style.color = getColor(engine.status);
 
         document.getElementById('modal-actual').innerText = engine.actual_rul;
+        document.getElementById('modal-lower').innerText = engine.lower_bound;
+document.getElementById('modal-upper').innerText = engine.upper_bound;
 
         // Risk timeline
         const timeline = document.getElementById('risk-timeline');
@@ -893,15 +917,16 @@
         const sensorData = scenarios.warning.map((v, i) => v + (Math.random() - 0.5) * 2);
 
         fetch('/analyze', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                rul: engine.predicted_rul,
-                status: engine.status,
-                sensors: sensorData,
-                engine_id: engine.engine_id
-            })
-        })
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+        rul: engine.predicted_rul,
+        status: engine.status,
+        sensors: sensorData,
+        engine_id: engine.engine_id,
+        flagged_sensors: flaggedSensors
+    })
+})
         .then(r => r.json())
         .then(d => {
             typeText(ariaText, d.analysis);
@@ -942,6 +967,42 @@
                     ${disabled ? 'disabled' : ''} step="0.01">
             `;
             container.appendChild(wrap);
+        });
+    }
+    // ARIA Voice Alert on page load
+let alertSpoken = false;
+
+function speakAlert(criticalCount) {
+    if (criticalCount === 0) return;
+
+    fetch('/fleet_alert')
+        .then(r => r.json())
+        .then(data => {
+            document.addEventListener('click', function triggerVoice() {
+                if (alertSpoken) return;
+                alertSpoken = true;
+
+                const msg = new SpeechSynthesisUtterance();
+msg.text = data.message;
+msg.rate = 0.88;
+msg.pitch = 1.1;
+msg.volume = 1;
+
+window.speechSynthesis.cancel();
+
+const setVoiceAndSpeak = () => {
+    const voices = window.speechSynthesis.getVoices();
+    const zira = voices.find(v => v.name === 'Microsoft Zira - English (United States)');
+    if (zira) msg.voice = zira;
+    window.speechSynthesis.speak(msg);
+};
+
+if (window.speechSynthesis.getVoices().length > 0) {
+    setVoiceAndSpeak();
+} else {
+    window.speechSynthesis.onvoiceschanged = setVoiceAndSpeak;
+}
+            });
         });
     }
 
@@ -1000,6 +1061,55 @@
 
     // Init predictor
     buildInputs(scenarios.healthy, false);
+
+    // Load anomalies
+fetch('/anomalies')
+    .then(r => r.json())
+    .then(data => {
+        const grid = document.getElementById('anomaly-grid');
+        data.forEach(e => {
+            const card = document.createElement('div');
+            card.className = 'engine-card critical';
+card.style.cursor = 'pointer';
+card.onclick = () => {
+    // Find this engine in allEngines
+    const engineData = allEngines.find(eng => eng.engine_id === e.engine_id) || {
+        engine_id: e.engine_id,
+        predicted_rul: 50,
+        actual_rul: '?',
+        status: 'critical',
+        lower_bound: 30,
+        upper_bound: 70
+    };
+    openModal(engineData, e.flagged_sensors);
+};
+card.innerHTML = `
+                <div class="engine-card-top">
+                    <div class="engine-id">ENG-${String(e.engine_id).padStart(3,'0')}</div>
+                    <div class="status-tag tag-critical">${e.severity} sensors flagged</div>
+                </div>
+                <div style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px;">
+                    ${e.flagged_sensors.map(s => `
+                        <div style="
+                            font-size:10px;
+                            padding:3px 8px;
+                            background:var(--red-dim);
+                            border:0.5px solid rgba(255,59,48,0.3);
+                            border-radius:2px;
+                            color:var(--red);
+                            letter-spacing:0.06em;
+                        ">${sensorLabels[s] || s}</div>
+                    `).join('')}
+                </div>
+                <div class="engine-meta">
+                    <span style="color:var(--red);">ANOMALOUS SENSOR PATTERN</span>
+                    <span>→ INVESTIGATE</span>
+                </div>
+            `;
+            grid.appendChild(card);
+        });
+    });
+
 </script>
 
 </body>
