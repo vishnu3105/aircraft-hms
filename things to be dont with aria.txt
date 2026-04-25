@@ -1,0 +1,233 @@
+
+PART 1 — THE ROAST
+Everything That's Wrong Right Now
+
+R1. The Cardinal Sin — Self Contradiction
+The system simultaneously says:
+
+ML Model: RUL 13, lower bound ZERO
+Z-Score: NOMINAL. Zero anomalies detected.
+
+This is not a bug. This is a fundamental architectural failure. Two brains, no coordination, no arbitration. In a real operation this gets an engine dispatched that should be grounded. This is the first thing that gets laughed out of any serious engineering review.
+Verdict: Disqualifying as-is.
+
+R2. LLaMA As The Safety Brain
+A general purpose internet-trained LLM is making diagnostic suggestions on a safety-critical system. LLaMA was trained on Reddit posts, Wikipedia articles, and web scrapes. It has zero airworthiness pedigree. It will hallucinate failure modes with complete confidence and beautiful grammar.
+Verdict: Architecturally irresponsible.
+
+R3. CMAPSS Is A Toy Dataset
+NASA CMAPSS is what every aerospace ML student touches in their second year. It's clean, perfectly labeled, single-fault, simulation-generated data with no noise, no sensor drift, no ingestion events, no maintenance interference. Real engines are none of those things.
+Verdict: Academic. Not operational.
+
+R4. Confidence Interval Is Operationally Useless
+RUL 13 with interval [0-35] is a 270% spread. You're telling a maintenance planner "this engine has somewhere between zero and thirty-five cycles left." That's not information. That's a shrug with error bars.
+Verdict: Cannot plan maintenance around this.
+
+R5. No Physical Laws Governing The Model
+The ML model can predict T30 greater than T50. It can predict negative pressures. It can suggest thermodynamically impossible engine states and present them with confidence scores. There are zero physics constraints baked in.
+Verdict: Garbage in, garbage out — with a nice UI.
+
+R6. Single Sensor Trust — No Validation Layer
+Raw sensor values are consumed directly. There is no check asking — is this sensor healthy? Is it drifting? Has it failed open or failed closed? A failed T30 sensor showing 9999 looks identical to a genuine overtemperature event to this system.
+Verdict: Cannot distinguish engine failure from instrument failure.
+
+R7. No Workflow. No Hands.
+18 critical engines on screen. Zero automated response. No work order. No engineer assignment. No regulatory flag. No dispatch advisory. The system sees everything and does nothing. It's a very expensive mirror.
+Verdict: Alarm clock without an alarm.
+
+R8. No Degradation Mode Classification
+"Engine is degrading" is not a maintenance input. Which component? Which failure mode? HPC fouling needs a wash. HPT blade erosion needs a borescope and possibly an unscheduled shop visit. These are completely different responses with completely different costs and timelines. ARIA doesn't know the difference.
+Verdict: Useless for actual maintenance planning.
+
+R9. Zero Regulatory Awareness
+No AD cross-reference. No SB awareness. No airworthiness authority integration. No mandatory occurrence reporting trigger. If a finding on FD-066 is covered by an active Airworthiness Directive, the system has no idea and neither does the technician reading it.
+Verdict: Legally blind.
+
+R10. Fleet Correlation Is Missing
+18 critical engines visible. No analysis asking — do these engines share a maintenance input? Same overhaul shop? Same fuel batch? Same operational route? Fleet-wide events are the most dangerous and most valuable signals in engine health monitoring. ARIA sees individual trees, completely blind to the forest.
+Verdict: Missing the most important signal in the dataset.
+
+
+PART 2 — WHAT NEEDS TO BE FIXED
+Non-Negotiable Improvements
+
+F1. Unified Arbitration Engine
+Build a single decision layer that ingests every subsystem output and produces one unified verdict.
+INPUTS:
+  ML RUL Prediction → weight 0.40
+  Physics Model Delta → weight 0.30
+  Z-Score Anomaly → weight 0.20
+  Hard Threshold Breach → weight 0.10
+  
+OUTPUT:
+  Single severity classification
+  Single confidence score
+  Single recommended action
+  Full audit trail of how verdict was reached
+One engine. One voice. One output. Non-negotiable.
+
+F2. Sensor Validity Layer
+Before any sensor value touches the diagnostic engine, it must pass through validation:
+
+Range check — is this physically possible?
+Rate-of-change check — did this value jump impossibly fast?
+Cross-validation — does this agree with redundant sensors?
+Historical baseline check — is this sensor drifting over time?
+Failure mode classification — open circuit, short, stuck value, drift
+
+Separate sensor health from engine health completely. They are different problems.
+
+F3. Physics-Informed Constraints
+Hard thermodynamic laws must be embedded as inviolable constraints:
+
+T30 cannot exceed T50 in healthy operation
+Pressure ratios must follow isentropic relationships within tolerance
+Shaft speeds must respect mechanical limits
+Fuel flow must correlate with thrust and temperature within bounds
+
+Any ML prediction that violates physics gets flagged and rejected automatically, not presented to the user as valid.
+
+F4. Degradation Mode Classifier
+The system must output not just RUL but the specific failure hypothesis:
+
+HPC fouling
+HPT blade erosion
+LPT tip clearance deterioration
+Combustor hot streak
+Bearing degradation
+Bleed valve malfunction
+Seal deterioration
+Fan blade damage
+
+Each classification drives a different maintenance response. This is where the real operational value lives.
+
+F5. Tighten The Confidence Interval
+Target maximum ±3 cycles uncertainty at RUL less than 20. Achieve this through:
+
+Ensemble modeling — minimum 5 diverse algorithms voting
+Bayesian uncertainty quantification — know why you're uncertain
+Continuous model updating — each new cycle tightens the prediction
+Fleet-informed priors — similar engines inform each other's predictions
+
+
+
+PART 3 — WHAT NEEDS TO BE ADDED
+Features That Make This Industrial
+
+A1. Real-Time Gas Path Analysis Engine
+This is the thermodynamic heart of a serious system. Model the entire engine as a series of stations:
+Inlet → Fan → LPC → HPC → Combustor → HPT → LPT → Exhaust
+  ↓      ↓     ↓     ↓        ↓          ↓     ↓       ↓
+P,T    P,T   P,T   P,T      P,T        P,T   P,T     P,T
+At each station compute actual efficiency versus new-engine baseline. The delta tells you exactly where energy is being lost and which component is responsible. This is what GE and Rolls-Royce do. This is non-negotiable for serious diagnostics.
+
+A2. Digital Twin Per Engine
+Every engine in the fleet gets its own living digital model — initialized at build, updated continuously through service life.
+
+Tracks every repair, every shop visit, every significant event
+Knows this specific engine's degradation personality — some engines run hot, some run cool, some vibrate more
+Predictions are personalized to this engine's history, not fleet averages
+Maintenance actions are validated against the twin before execution
+
+This is the single biggest differentiator from basic monitoring systems.
+
+A3. Automated MRO Workflow Integration
+Connect directly to maintenance management systems:
+
+Auto-generate work orders in AMOS, TRAX, or SAP PM on trigger
+Pull relevant AMM task cards automatically
+Assign to available licensed engineers by certification level
+Track sign-off with digital signature and license verification
+Close the loop — feed maintenance outcomes back into the model
+
+
+A4. Regulatory Compliance Engine
+Real-time cross-reference against:
+
+Active Airworthiness Directives by engine type and serial number
+Applicable Service Bulletins from OEM
+Mandatory Occurrence Reporting thresholds
+Minimum Equipment List implications
+Dispatch deviation guide integration
+
+When a finding matches an AD, the system must flag it, document it, and notify QA automatically. No human has to remember to check.
+
+A5. Fleet Correlation Intelligence
+This is where you find the signals nobody else is finding:
+
+Cluster engines by maintenance lineage, overhaul shop, fuel source, route profile
+Detect fleet-wide degradation events before they become fleet-wide failures
+Compare engines with same serial number components across different airframes
+Identify systemic maintenance errors — the same wrong torque applied to 12 engines by one technician
+Benchmark operators against anonymized industry data
+
+
+A6. Vibration Signature Analysis
+Current ARIA appears purely thermal. Real engine health monitoring requires vibration:
+
+Continuous rotor track and balance monitoring
+Bearing defect frequency analysis — BPFO, BPFI, BSF, FTF
+Blade passing frequency monitoring for FOD and erosion detection
+Cross-correlation of vibration with thermal events — vibration spike before temperature rise is a different failure than simultaneous onset
+Waterfall plots showing frequency evolution over time
+
+
+A7. Oil System Intelligence
+SOAP integration — Spectrometric Oil Analysis Program:
+
+Track metal particle concentration by element — titanium, nickel, iron, chromium, silver tell you which component is wearing
+Trend particle counts over time, not just point-in-time values
+Correlate oil metal content with gas path anomalies for multi-signal confirmation
+Chip detector integration — magnetic chip count trending
+Oil consumption rate trending against historical baseline
+
+
+A8. Borescope AI Integration
+Connect the visual inspection record to the analytics:
+
+Upload borescope images, AI classifies findings — erosion grade, crack indication, coating condition, deposit severity
+Track the same blade's condition across multiple inspections over time
+Correlate visual findings with sensor anomalies — does this borescope finding explain what the thermal model saw?
+Auto-populate inspection findings into the digital twin
+
+
+A9. Operational Context Engine
+The engine doesn't operate in vacuum. ARIA must know:
+
+Route profiles — high altitude long haul versus short cycle city hops age engines differently
+Takeoff power setting history — derated versus full power departures
+Airport environment — sandy desert operations accelerate compressor erosion
+Seasonal factors — hot and high conditions increase thermal stress
+Pilot technique variations — aggressive acceleration profiles versus smooth power management
+
+Same engine, different operational context = completely different RUL. The system must know the difference.
+
+A10. Predictive Parts Inventory
+Connect the RUL predictions to supply chain:
+
+Engine A is predicted to need HPC blade replacement in 18 cycles
+System automatically checks parts inventory
+If parts not available, triggers procurement order with appropriate lead time
+Coordinates with shop capacity planning
+Calculates cost of scheduled versus unscheduled replacement
+
+This converts health monitoring from a safety tool into a cost management tool — which is what gets airline CFOs to sign the check.
+
+A11. Crew and Ops Integration
+Connect to operations control in real time:
+
+If RUL drops below dispatch threshold during turnaround, ops control is notified before crew boards
+ACARS message auto-generated to flight crew if in-flight threshold breached
+MEL implications automatically assessed
+Alternate airport planning flagged if in-flight engine health deteriorates
+
+
+A12. Multi-Physics Simulation Layer
+Beyond gas path — model every physics domain simultaneously:
+
+Thermal finite element model of hot section components
+Rotor dynamics model for shaft critical speeds and bearing loads
+Aeromechanical model for blade flutter and forced response
+Lifing model — creep, fatigue, oxidation tracked per component per cycle
+
+When all four physics domains agree an engine is healthy — you have real confidence. When they disagree — you have a research problem worth investigating.
