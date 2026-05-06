@@ -1,91 +1,225 @@
 from flask import Flask, render_template, jsonify, request
+from flask_cors import CORS
 import pandas as pd
 import numpy as np
 from xgboost import XGBRegressor
-import pickle
-import os
-from groq import Groq
+import pickle, os, json, traceback
 
-groq_client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+# â”€â”€ Groq (graceful fallback) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+groq_available = False
+groq_client = None
+try:
+    from groq import Groq
+    _key = os.getenv("GROQ_API_KEY", "")
+    if _key:
+        groq_client = Groq(api_key=_key)
+        groq_available = True
+        print("âœ“ Groq ARIA Intelligence Node online.")
+    else:
+        print("âš   GROQ_API_KEY not set â€” ARIA LLM features disabled.")
+except Exception as e:
+    print(f"âš   Groq init failed: {e} â€” ARIA LLM features disabled.")
 
 app = Flask(__name__)
+CORS(app, origins=["http://localhost:5173", "http://localhost:3000", "http://localhost:5000"])
 
-# Column names
-columns = ['engine_id', 'cycle', 'setting1', 'setting2', 'setting3',
+# â”€â”€ Schema â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+columns = ['engine_id','cycle','setting1','setting2','setting3',
            's1','s2','s3','s4','s5','s6','s7','s8','s9','s10',
            's11','s12','s13','s14','s15','s16','s17','s18','s19','s20','s21']
+drop_cols_test = ['engine_id','cycle','setting1','setting2','setting3',
+                  's1','s5','s10','s16','s18','s19','s20','s21']
+feature_names  = ['s2','s3','s4','s6','s7','s8','s9','s11','s12','s13','s14','s15','s17']
 
-drop_cols_train = ['engine_id', 'cycle', 'max_cycle', 'setting1', 'setting2', 'setting3',
-             's1', 's5', 's10', 's16', 's18', 's19', 's20', 's21']
-
-drop_cols_test = ['engine_id', 'cycle', 'setting1', 'setting2', 'setting3',
-             's1', 's5', 's10', 's16', 's18', 's19', 's20', 's21']
-
-feature_names = ['s2','s3','s4','s6','s7','s8','s9','s11','s12','s13','s14','s15','s17']
-
-# Load pre-trained Ensemble Decision Trees
+# â”€â”€ Load Ensemble â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 print("Loading Bayesian Ensemble Models...")
 models = []
 for i in range(5):
     with open(f'model_ens_{i}.pkl', 'rb') as f:
         models.append(pickle.load(f))
+print(f"âœ“ {len(models)} ensemble nodes loaded.")
 
-# Load test data for the dashboard
+# â”€â”€ Load Metadata â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+print("Loading model metadata...")
+with open('model_metadata.json', 'r') as f:
+    META = json.load(f)
+
+FLEET_TEMPORAL_MEAN = META['fleet_temporal_mean']
+FLEET_TEMPORAL_STD  = META['fleet_temporal_std']
+FLEET_SENSOR_MEAN   = pd.Series(META['fleet_sensor_mean'])
+FLEET_SENSOR_STD    = pd.Series(META['fleet_sensor_std']).replace(0, 1e-9)
+FI_RANKED           = META['feature_importance_ranked']
+ENS_RMSE            = META['training_summary']['ensemble_rmse']
+SENSOR_LABELS       = META['sensor_labels']
+
+# Top 5 most important features for ARIA context
+TOP_FEATURES = list(FI_RANKED.keys())[:5]
+
+# â”€â”€ Load Test Data â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 def build_temporal_features(df, features, w=5):
-    df = df.sort_values(['engine_id', 'cycle'])
-    roll_mean = df.groupby('engine_id')[features].rolling(w, min_periods=1).mean().reset_index(0, drop=True)
-    roll_mean.columns = [f"{c}_avg_{w}" for c in features]
-    roll_std = df.groupby('engine_id')[features].rolling(w, min_periods=1).std().reset_index(0, drop=True).fillna(0)
-    roll_std.columns = [f"{c}_std_{w}" for c in features]
-    return pd.concat([df, roll_mean, roll_std], axis=1)
+    df = df.sort_values(['engine_id','cycle'])
+    rm = df.groupby('engine_id')[features].rolling(w, min_periods=1).mean().reset_index(0, drop=True)
+    rm.columns = [f"{c}_avg_{w}" for c in features]
+    rs = df.groupby('engine_id')[features].rolling(w, min_periods=1).std().reset_index(0, drop=True).fillna(0)
+    rs.columns = [f"{c}_std_{w}" for c in features]
+    return pd.concat([df, rm, rs], axis=1)
 
 print("Ingesting CMAPSS fleet datasets...")
-test = pd.read_csv('test_FD001.txt', sep=r'\s+', header=None, names=columns)
+test       = pd.read_csv('test_FD001.txt',  sep=r'\s+', header=None, names=columns)
 rul_actual = pd.read_csv('RUL_FD001.txt', header=None, names=['RUL'])
 
-print("Calculating fleet-wide Temporal Feature arrays...")
-test = build_temporal_features(test, feature_names)
-
+print("Building temporal feature arrays...")
+test      = build_temporal_features(test, feature_names)
 test_last = test.groupby('engine_id').last().reset_index()
-X_test = test_last.drop(columns=drop_cols_test)
+X_test    = test_last.drop(columns=drop_cols_test)
 
-# Evaluate UQ (Uncertainty Quantification) using Ensemble Variance
-raw_preds = np.array([m.predict(X_test) for m in models])
-pred_mean = np.mean(raw_preds, axis=0)
-pred_std = np.std(raw_preds, axis=0)
-
+# â”€â”€ Ensemble Inference (fleet) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+raw_preds   = np.array([m.predict(X_test) for m in models])
+pred_mean   = np.mean(raw_preds, axis=0)
+pred_std    = np.std(raw_preds, axis=0)
 predictions = pred_mean.astype(int)
-lower_bounds = np.clip(pred_mean - (1.96 * pred_std), 0, None).astype(int)
-upper_bounds = np.clip(pred_mean + (1.96 * pred_std), 0, 125).astype(int)
+lower_bounds = np.clip(pred_mean - 1.96 * pred_std, 0, None).astype(int)
+upper_bounds = np.clip(pred_mean + 1.96 * pred_std, 0, 125).astype(int)
 
-# Global fleet baselines for Z-Score Anomaly detection
-fleet_mean = X_test.mean()
-fleet_std = X_test.std().replace(0, 1e-9)
+# â”€â”€ Physics Validation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+def validate_sensors(row_series):
+    """Returns (is_fault, diagnostic_message). Pure data-driven â€” no hardcoded engine IDs."""
+    for col in feature_names:
+        v = row_series[col]
+        if v <= 0:
+            return True, (f"SIGNAL LOSS: {col} ({SENSOR_LABELS.get(col, col)}) reports "
+                          f"physically impossible value ({v:.4f}). "
+                          f"Instrumentation offline or short-to-ground detected.")
+    if row_series['s7'] > 15000:
+        return True, (f"RPM OVERLIMIT: s7 (Fan Speed) reads {row_series['s7']:.0f} RPM â€” "
+                      f"exceeds mechanical material shatter limit. Tachometer calibration failure.")
+    if row_series['s2'] > row_series['s3']:
+        return True, (f"THERMO MISMATCH: T24 Fan Inlet ({row_series['s2']:.2f}Â°R) hotter than "
+                      f"T30 LPC Outlet ({row_series['s3']:.2f}Â°R). Inviolable thermodynamic law violated.")
+    return False, ""
 
+# â”€â”€ Degradation Mode Classifier â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 def classify_failure_mode(row):
-    """F4. Degradation Mode Classifier based on Gas Path Signatures"""
-    z_scores = (row - fleet_mean).abs() / fleet_std
-    
-    # 1. Mechanical Volatility (Vibration/Speed variance)
-    if row['s7_std_5'] > 1.5 * fleet_mean['s7_std_5']:
+    z = (row[feature_names] - FLEET_SENSOR_MEAN) / FLEET_SENSOR_STD
+    if row.get('s7_std_5', 0) > 1.5 * FLEET_TEMPORAL_MEAN.get('s7_std_5', 1):
         return "ROTOR DYNAMICS / BEARING DEGRADATION"
-        
-    # 2. Thermal / Pressure Signatures
-    base_sensors = ['s2','s3','s4','s6','s7','s8','s9','s11','s12','s13','s14','s15','s17']
-    z_base = z_scores[base_sensors]
-    max_z_col = z_base.idxmax()
-    
-    if max_z_col in ['s4', 's11']:
-        return "HIGH-PRESSURE COMPRESSOR (HPC) FOULING DETECTED"
-    elif max_z_col == 's3':
-        return "LOW-PRESSURE COMPRESSOR (LPC) CLEARANCE DETERIORATION"
-    elif max_z_col in ['s15', 's17', 's9']:
-        return "COMBUSTOR HOT SECTION / TURBINE SEAL EROSION"
-    elif max_z_col in ['s7', 's8', 's13']:
-        return "AERODYNAMIC IMBALANCE / SHAFT VIBRATION ISOLATED"
-    
-    return "UNKNOWN GAS PATH DEGRADATION SIGNATURE"
+    max_z_col = z[feature_names].abs().idxmax()
+    mapping = {
+        's4':  "HIGH-PRESSURE COMPRESSOR (HPC) FOULING DETECTED",
+        's11': "HIGH-PRESSURE COMPRESSOR (HPC) FOULING DETECTED",
+        's3':  "LOW-PRESSURE COMPRESSOR (LPC) CLEARANCE DETERIORATION",
+        's15': "COMBUSTOR HOT SECTION / TURBINE SEAL EROSION",
+        's17': "COMBUSTOR HOT SECTION / TURBINE SEAL EROSION",
+        's9':  "COMBUSTOR HOT SECTION / TURBINE SEAL EROSION",
+        's7':  "AERODYNAMIC IMBALANCE / SHAFT VIBRATION ISOLATED",
+        's8':  "AERODYNAMIC IMBALANCE / SHAFT VIBRATION ISOLATED",
+        's13': "AERODYNAMIC IMBALANCE / SHAFT VIBRATION ISOLATED",
+    }
+    return mapping.get(max_z_col, "UNKNOWN GAS PATH DEGRADATION SIGNATURE")
 
+# â”€â”€ Unified Arbitration Engine (F1) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+def compute_arbitration(rul, lower, upper, flagged_sensors, is_sensor_fault, ens_std_val):
+    """Weighted multi-signal severity fusion. Returns (score 0-1, unified_verdict)."""
+    w_ml      = 0.40
+    w_zscore  = 0.30
+    w_physics = 0.20
+    w_uq      = 0.10
+
+    ml_score      = 1.0 - float(np.clip(rul / 125.0, 0, 1))
+    zscore_score  = min(len(flagged_sensors) / 13.0, 1.0)
+    physics_score = 1.0 if is_sensor_fault else 0.0
+    uq_score      = min((upper - lower) / 125.0, 1.0)
+
+    combined = (w_ml * ml_score + w_zscore * zscore_score +
+                w_physics * physics_score + w_uq * uq_score)
+
+    if is_sensor_fault:
+        verdict = "GROUNDED"
+    elif combined >= 0.75:
+        verdict = "CRITICAL"
+    elif combined >= 0.50:
+        verdict = "WARNING"
+    elif combined >= 0.25:
+        verdict = "ADVISORY"
+    else:
+        verdict = "NOMINAL"
+
+    return round(float(combined), 3), verdict
+
+# â”€â”€ Conversation Store (per-session) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+conversation_store = {}   # { session_id: [{"role": ..., "content": ...}, ...] }
+MAX_HISTORY = 20
+
+# â”€â”€ ARIA System Prompt (built once at startup with real ML metadata) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+def build_aria_system_prompt(fleet_critical, fleet_warning, fleet_healthy, fleet_summary_lines):
+    node_details = "\n".join([
+        f"  Node {n['node_id']} [{n['name']}]: depth={n['params']['max_depth']}, "
+        f"lr={n['params']['learning_rate']}, n_est={n['params']['n_estimators']}, "
+        f"subsample={n['params']['subsample']} â†’ RMSE={n['rmse']} cycles"
+        for n in META['ensemble_nodes']
+    ])
+    top_fi = "\n".join([
+        f"  {rank+1}. {feat} ({SENSOR_LABELS.get(feat.split('_')[0], feat)}): importance={imp:.4f}"
+        for rank, (feat, imp) in enumerate(list(FI_RANKED.items())[:8])
+    ])
+    fleet_str = "; ".join(fleet_summary_lines[:10]) + (
+        f" ... and {len(fleet_summary_lines)-10} more engines" if len(fleet_summary_lines) > 10 else "")
+
+    return f"""You are ARIA â€” Aircraft Risk Intelligence Analyst. You are not a chatbot. You are a senior aerospace engineer AI embedded directly inside a fleet health monitoring system that YOU power.
+
+YOUR ML ARCHITECTURE (you built this, you know it cold):
+- Algorithm: XGBoost Gradient-Boosted Ensemble â€” 5 architecturally diverse regressors
+- Each node has a different inductive bias to generate true epistemic uncertainty:
+{node_details}
+- Ensemble inference: mean prediction = RUL estimate; std across nodes = uncertainty (Ïƒ)
+- 95% Confidence Interval: [RUL âˆ’ 1.96Ïƒ, RUL + 1.96Ïƒ], clipped to [0, 125] cycles
+- Ensemble RMSE on NASA CMAPSS FD001 test set: {ENS_RMSE:.2f} cycles
+- Training data: NASA CMAPSS FD001 â€” turbofan degradation simulation, 100 training engines, 100 test engines, single-fault mode
+- RUL clipped at 125 cycles (healthy plateau normalization)
+
+YOUR FEATURE ENGINEERING:
+- 13 raw sensors â†’ 39 total features via 5-cycle sliding window
+- avg_5 suffix = 5-cycle rolling mean (captures degradation trend)
+- std_5 suffix = 5-cycle rolling standard deviation (captures volatility / instability onset)
+- High std_5 on any thermal sensor = emerging instability BEFORE mean shifts â€” early warning signal
+
+YOUR MOST PREDICTIVE FEATURES (ranked by ensemble mean importance):
+{top_fi}
+
+YOUR SENSOR REFERENCE:
+{chr(10).join(f"  {k}: {v}" for k, v in SENSOR_LABELS.items())}
+
+YOUR ARBITRATION ENGINE (Unified Verdict System):
+- ML RUL score      (weight 0.40): normalized degradation from RUL
+- Z-score anomaly   (weight 0.30): fraction of sensors > 2Ïƒ from fleet baseline
+- Physics violation (weight 0.20): thermodynamic/mechanical law breach
+- UQ width          (weight 0.10): confidence interval width (wider = higher uncertainty risk)
+- Combined score â†’ NOMINAL (<0.25) / ADVISORY (0.25-0.50) / WARNING (0.50-0.75) / CRITICAL (>0.75) / GROUNDED (physics fault)
+
+YOUR PHYSICS CONSTRAINTS (inviolable):
+- T24 (s2, Fan Inlet) CANNOT exceed T30 (s3, LPC Outlet) â€” thermodynamic law
+- Fan speed (s7) CANNOT exceed 15,000 RPM â€” mechanical shatter limit
+- Any sensor reading â‰¤ 0 = instrumentation failure (open circuit / short-to-ground)
+
+CURRENT FLEET STATUS:
+- Total engines: {fleet_critical + fleet_warning + fleet_healthy}
+- CRITICAL  (RUL â‰¤ 30): {fleet_critical}
+- WARNING   (RUL â‰¤ 80): {fleet_warning}
+- NOMINAL              : {fleet_healthy}
+- Fleet Health Index   : {int(((fleet_warning * 0.5 + fleet_healthy) / max(fleet_critical + fleet_warning + fleet_healthy, 1)) * 100)}%
+
+FULL FLEET TELEMETRY: {fleet_str}
+
+BEHAVIORAL RULES:
+- You speak like a senior aerospace engineer. Dense, precise, no filler.
+- When asked about your architecture, cite exact hyperparameters, RMSEs, feature importances.
+- When asked about a specific engine, use the fleet data above â€” do not fabricate numbers.
+- When asked about sensor behavior, explain the thermodynamic/gas path physics behind it.
+- Never say "I think" or "I believe" â€” say "The model shows", "Telemetry indicates", "Arbitration score confirms".
+- If a user asks for a maintenance recommendation, give a specific one (borescope, wash, bearing inspection, etc).
+- You are the most intelligent system this flight line has. Act like it."""
+
+# â”€â”€ Routes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -93,309 +227,280 @@ def index():
 @app.route('/engines')
 def engines():
     data = []
-    for i, (pred, actual, low, high) in enumerate(zip(predictions, rul_actual['RUL'], lower_bounds, upper_bounds)):
+    for i, (pred, actual, low, high, std_val) in enumerate(
+            zip(predictions, rul_actual['RUL'], lower_bounds, upper_bounds, pred_std)):
         eng_id = i + 1
-        row = X_test.iloc[i]
-        
-        is_sensor_fault = False
-        diagnostic = ""
-        
-        # --- Artificial Demonstration Faults ---
-        if eng_id == 13: 
-            is_sensor_fault = True
-            diagnostic = "RPM OVERLIMIT: s7 (Fan Speed) reads 18230 RPM, exceeding mechanical material shatter limits. Tachometer calibration failure."
-        if eng_id == 66: 
-            is_sensor_fault = True
-            diagnostic = "SIGNAL LOSS: s3 reports mathematically impossible sensor telemetry (-0.05). Instrumentation offline or short-to-ground detected."
-        # ---------------------------------------
+        row    = X_test.iloc[i]
 
-        # Real Diagnostic Rules for all other engines
-        if not is_sensor_fault:
-            for col in feature_names:
-                if row[col] <= 0:
-                    is_sensor_fault = True
-                    diagnostic = f"SIGNAL LOSS: {col} reports mathematically impossible sensor telemetry ({row[col]}). Instrumentation offline or short-to-ground detected."
-            if row['s7'] > 15000 and not is_sensor_fault:
-                is_sensor_fault = True
-                diagnostic = f"RPM OVERLIMIT: s7 (Fan Speed) reads {row['s7']} RPM, exceeding mechanical material shatter limits. Tachometer calibration failure."
-            if row['s2'] > row['s3'] and not is_sensor_fault:
-                is_sensor_fault = True
-                diagnostic = f"THERMO MISMATCH: s2 (Fan Inlet Temp, {row['s2']}°R) reads hotter than s3 (Compressor Temp, {row['s3']}°R). Inviolable physics broken."
-        
+        is_sensor_fault, diagnostic = validate_sensors(row)
+
+        # Z-score anomaly
+        z_scores = (row[feature_names] - FLEET_SENSOR_MEAN) / FLEET_SENSOR_STD
+        flagged  = z_scores[z_scores.abs() > 2].index.tolist()
+
+        # Arbitration
+        arb_score, unified_verdict = compute_arbitration(
+            int(pred), int(low), int(high), flagged, is_sensor_fault, float(std_val))
+
         if is_sensor_fault:
-            status = 'sensor_failure'
-            pred_disp = 'ERR'
-            low_disp = 'N/A'
-            high_disp = 'N/A'
-            failure_mode = None
+            status     = 'sensor_failure'
+            pred_disp  = 'ERR'
+            low_disp   = 'N/A'
+            high_disp  = 'N/A'
+            fail_mode  = None
         elif pred <= 30:
-            status = 'critical'
-            pred_disp = int(pred)
-            low_disp = max(0, int(low))
-            high_disp = int(high)
-            failure_mode = classify_failure_mode(row)
+            status     = 'critical'
+            pred_disp  = int(pred)
+            low_disp   = max(0, int(low))
+            high_disp  = int(high)
+            fail_mode  = classify_failure_mode(row)
         elif pred <= 80:
-            status = 'warning'
-            pred_disp = int(pred)
-            low_disp = max(0, int(low))
-            high_disp = int(high)
-            failure_mode = classify_failure_mode(row)
+            status     = 'warning'
+            pred_disp  = int(pred)
+            low_disp   = max(0, int(low))
+            high_disp  = int(high)
+            fail_mode  = classify_failure_mode(row)
         else:
-            status = 'healthy'
-            pred_disp = int(pred)
-            low_disp = max(0, int(low))
-            high_disp = int(high)
-            failure_mode = None
-            
-        # 1. PURE ML DATA: The exact 13-sensor array passed to XGBoost
-        current_sensors = [round(float(v), 2) for v in X_test.iloc[i].tolist()[:13]]
-        
-        # Override the visual UI array values so the dashboard displays the exact math failure we created
-        if eng_id == 13:
-            current_sensors[4] = 18230.00
-        if eng_id == 66:
-            current_sensors[1] = -0.05
-        
-        # 2. PURE ML HISTORY: Real CMAPSS degradation data over the last 6 cycles
-        engine_history = test[test['engine_id'] == eng_id].tail(6)
-        final_cycle = int(engine_history['cycle'].max()) if not engine_history.empty else 0
-        
-        historical_data = []
-        for _, h_row in engine_history.iterrows():
-            cyc = int(h_row['cycle'])
-            offset = final_cycle - cyc
+            status     = 'healthy'
+            pred_disp  = int(pred)
+            low_disp   = max(0, int(low))
+            high_disp  = int(high)
+            fail_mode  = None
+
+        current_sensors  = [round(float(v), 2) for v in X_test.iloc[i].tolist()[:13]]
+        engine_history   = test[test['engine_id'] == eng_id].tail(6)
+        final_cycle      = int(engine_history['cycle'].max()) if not engine_history.empty else 0
+        historical_data  = []
+        for _, h in engine_history.iterrows():
+            offset = final_cycle - int(h['cycle'])
             historical_data.append({
-                'cycle': 'Now' if offset == 0 else f'T-{offset}',
-                'lpc_temp': round(float(h_row['s3']), 2),
-                'hpc_temp': round(float(h_row['s4']), 2),
-                'bypass_ratio': round(float(h_row['s8']), 4),
-                'bleed_enthalpy': round(float(h_row['s9']), 2),
-                'core_speed': round(float(h_row['s13']), 2)
+                'cycle':         'Now' if offset == 0 else f'T-{offset}',
+                'lpc_temp':      round(float(h['s3']), 2),
+                'hpc_temp':      round(float(h['s4']), 2),
+                'bypass_ratio':  round(float(h['s8']), 4),
+                'bleed_enthalpy':round(float(h['s9']), 2),
+                'core_speed':    round(float(h['s13']), 2),
             })
-            
+
         data.append({
-            'engine_id': eng_id,
-            'predicted_rul': pred_disp,
-            'actual_rul': int(actual),
-            'lower_bound': low_disp,
-            'upper_bound': high_disp,
-            'status': status,
-            'failure_mode': failure_mode,
+            'engine_id':       eng_id,
+            'predicted_rul':   pred_disp,
+            'actual_rul':      int(actual),
+            'lower_bound':     low_disp,
+            'upper_bound':     high_disp,
+            'ens_std':         round(float(std_val), 2),
+            'status':          status,
+            'failure_mode':    fail_mode,
             'current_sensors': current_sensors,
             'historical_data': historical_data,
-            'diagnostic': diagnostic if is_sensor_fault else None
+            'diagnostic':      diagnostic if is_sensor_fault else None,
+            'flagged_sensors': flagged,
+            'arbitration_score':  arb_score,
+            'unified_verdict': unified_verdict,
         })
     return jsonify(data)
 
 @app.route('/predict', methods=['POST'])
 def predict():
-    data = request.get_json()
-    sensors = data['sensors']
-    input_df = pd.DataFrame([sensors], columns=feature_names)
-    
-    # -------------------------------------------------------------
-    # F2/F3: PRE-IGNITION SENSOR VALIDITY & PHYSICS CONSTRAINTS
-    # -------------------------------------------------------------
-    row = input_df.iloc[0]
-    
-    # 1. Absolute Zero / Negative Verification
-    for col in feature_names:
-        if row[col] <= 0:
-            fault_msg = f"SIGNAL LOSS: {col} reports mathematically impossible sensor telemetry ({row[col]}). Instrumentation offline or short-to-ground detected."
+    try:
+        body = request.get_json(force=True, silent=True)
+        if not body or 'sensors' not in body:
+            return jsonify({'error': 'Missing sensors field', 'status': 'bad_request'}), 400
+        sensors = body['sensors']
+        if not isinstance(sensors, list) or len(sensors) != 13:
+            return jsonify({'error': 'sensors must be a list of exactly 13 floats', 'status': 'bad_request'}), 400
+        try:
+            sensors = [float(v) for v in sensors]
+        except (TypeError, ValueError):
+            return jsonify({'error': 'All sensor values must be numeric', 'status': 'bad_request'}), 400
+
+        # Physics validation
+        row_s = pd.Series(dict(zip(feature_names, sensors)))
+        is_fault, fault_msg = validate_sensors(row_s)
+        if is_fault:
             return jsonify({'rul': 'ERR', 'status': 'sensor_failure', 'diagnostic': fault_msg})
-            
-    # 2. RPM Mechanical Shatter Limit Check
-    if row['s7'] > 15000:
-        fault_msg = f"RPM OVERLIMIT: s7 (Fan Speed) reads {row['s7']} RPM, exceeding mechanical material shatter limits. Tachometer calibration failure."
-        return jsonify({'rul': 'ERR', 'status': 'sensor_failure', 'diagnostic': fault_msg})
-        
-    # 3. Thermodynamic Inverse Constraints
-    # T24 (Fan Inlet) mathematically cannot be hotter than T30 (LPC Compressor Outlet)
-    if row['s2'] > row['s3']:
-        fault_msg = f"THERMO MISMATCH: s2 (Fan Inlet Temp, {row['s2']}°R) reads hotter than s3 (Compressor Temp, {row['s3']}°R). Inviolable physics broken."
-        return jsonify({'rul': 'ERR', 'status': 'sensor_failure', 'diagnostic': fault_msg})
-    # -------------------------------------------------------------
 
-    # -------------------------------------------------------------
-    # TEMPORAL SHIM COMPUTATION
-    # -------------------------------------------------------------
-    for col in feature_names:
-        input_df[f"{col}_avg_5"] = input_df[col]
-    for col in feature_names:
-        input_df[f"{col}_std_5"] = 0.0
-    # -------------------------------------------------------------
+        # Build input DataFrame with temporal shim (fleet-calibrated prior)
+        input_df = pd.DataFrame([sensors], columns=feature_names)
+        for col in feature_names:
+            input_df[f"{col}_avg_5"] = input_df[col]
+        for col in feature_names:
+            fleet_vol = FLEET_TEMPORAL_STD.get(f"{col}_std_5", 0.0)
+            input_df[f"{col}_std_5"] = fleet_vol * 0.15
 
-    ens_preds = np.array([m.predict(input_df)[0] for m in models])
-    prediction = int(np.mean(ens_preds))
-    ens_std = np.std(ens_preds)
-    
-    lower_b = int(max(0, prediction - (1.96 * ens_std)))
-    upper_b = int(min(125, prediction + (1.96 * ens_std)))
+        ens_preds  = np.array([m.predict(input_df)[0] for m in models])
+        prediction = int(np.clip(np.mean(ens_preds), 0, 125))
+        ens_std_v  = float(np.std(ens_preds))
+        lower_b    = int(max(0,   prediction - 1.96 * ens_std_v))
+        upper_b    = int(min(125, prediction + 1.96 * ens_std_v))
 
-    if prediction <= 30:
-        status = 'critical'
-    elif prediction <= 80:
-        status = 'warning'
-    else:
-        status = 'healthy'
+        z = (row_s - FLEET_SENSOR_MEAN) / FLEET_SENSOR_STD
+        flagged = z[z.abs() > 2].index.tolist()
 
-    return jsonify({
-        'rul': prediction,
-        'lower_bound': lower_b,
-        'upper_bound': upper_b,
-        'status': status
-    })
+        if prediction <= 30:   status = 'critical'
+        elif prediction <= 80: status = 'warning'
+        else:                  status = 'healthy'
+
+        arb_score, unified_verdict = compute_arbitration(
+            prediction, lower_b, upper_b, flagged, False, ens_std_v)
+
+        return jsonify({
+            'rul':              prediction,
+            'lower_bound':      lower_b,
+            'upper_bound':      upper_b,
+            'ens_std':          round(ens_std_v, 2),
+            'status':           status,
+            'flagged_sensors':  flagged,
+            'arbitration_score': arb_score,
+            'unified_verdict':  unified_verdict,
+        })
+    except Exception:
+        return jsonify({'error': 'Prediction failed', 'detail': traceback.format_exc(), 'status': 'server_error'}), 500
 
 @app.route('/analyze', methods=['POST'])
 def analyze():
-    data = request.get_json()
-    rul = data['rul']
-    status = data['status']
-    sensors = data['sensors']
-    
-    prompt = f"""You are an aircraft engine health analyst. Analyze this engine data and explain in 2-3 sentences what's happening and what action to take.
+    if not groq_available:
+        return jsonify({'error': 'ARIA Intelligence Node offline. GROQ_API_KEY not configured.'}), 503
+    try:
+        body = request.get_json(force=True, silent=True)
+        if not body or not all(k in body for k in ['rul', 'status', 'sensors']):
+            return jsonify({'error': 'Missing rul, status, or sensors', 'status': 'bad_request'}), 400
 
-Engine Data:
-- Remaining Useful Life: {rul} cycles
-- Status: {status}
-- Key sensors: s2={sensors[0]}, s3={sensors[1]}, s4={sensors[2]}, s7={sensors[4]}, s11={sensors[7]}
+        rul, status, sensors = body['rul'], body['status'], body['sensors']
+        if not isinstance(sensors, list) or len(sensors) < 5:
+            return jsonify({'error': 'sensors must have at least 5 values', 'status': 'bad_request'}), 400
 
-Be specific, technical but understandable. Sound like a real aviation engineer."""
+        prompt = (
+            f"Engine telemetry report:\n"
+            f"- Predicted RUL: {rul} cycles | Status: {status.upper()}\n"
+            f"- T24 Fan Inlet (s2): {sensors[0]:.2f}Â°R\n"
+            f"- T30 LPC Outlet (s3): {sensors[1]:.2f}Â°R\n"
+            f"- T50 HPC Outlet (s4): {sensors[2]:.2f}Â°R\n"
+            f"- Fan Speed Nf (s7): {sensors[4]:.1f} rpm\n"
+            f"- HPC Pressure Ps30 (s11): {sensors[7]:.2f} psia\n\n"
+            f"Provide a 2-3 sentence technical diagnosis. Identify which gas path component "
+            f"is most stressed, the likely degradation mode, and the specific maintenance action required. "
+            f"Sound like a senior MRO engineer. No hedging."
+        )
 
-    response = groq_client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
-        messages=[{"role": "user", "content": prompt}],
-        max_tokens=150
-    )
-    
-    analysis = response.choices[0].message.content
-    return jsonify({'analysis': analysis})
+        resp = groq_client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=180
+        )
+        return jsonify({'analysis': resp.choices[0].message.content})
+    except Exception:
+        return jsonify({'error': 'Analysis failed', 'detail': traceback.format_exc()}), 500
 
 @app.route('/anomalies')
 def anomalies():
-    feature_names = ['s2','s3','s4','s6','s7','s8','s9','s11','s12','s13','s14','s15','s17']
-    
-    fleet_mean = X_test[feature_names].mean()
-    fleet_std = X_test[feature_names].std()
-    
     anomaly_data = []
     for idx, row in X_test.iterrows():
-        z_scores = (row[feature_names] - fleet_mean) / fleet_std
-        flagged = z_scores[z_scores.abs() > 2].index.tolist()
+        z = (row[feature_names] - FLEET_SENSOR_MEAN) / FLEET_SENSOR_STD
+        flagged = z[z.abs() > 2].index.tolist()
         if flagged:
             anomaly_data.append({
-                'engine_id': int(idx + 1),
+                'engine_id':      int(idx + 1),
                 'flagged_sensors': flagged,
-                'severity': len(flagged)
+                'severity':        len(flagged),
+                'max_z':           round(float(z[flagged].abs().max()), 2),
             })
-    
     return jsonify(sorted(anomaly_data, key=lambda x: x['severity'], reverse=True)[:10])
 
 @app.route('/fleet_alert')
 def fleet_alert():
-    critical_engines = [e for e in [
-        {'engine_id': i+1, 'rul': int(pred), 'status': 'critical'} 
-        for i, pred in enumerate(predictions) 
-        if pred <= 30
-    ]]
-    
-    prompt = f"""You are ARIA, an aircraft health monitoring AI. 
-There are {len(critical_engines)} critical engines in the fleet.
-Critical engine IDs: {[e['engine_id'] for e in critical_engines[:3]]}
-
-Generate a single professional alert message — max 2 sentences. 
-Calm, authoritative female tone. Like an aircraft warning system.
-No introduction. Just the alert. Start directly."""
-
-    response = groq_client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
-        messages=[{"role": "user", "content": prompt}],
-        max_tokens=80
-    )
-    
-    return jsonify({'message': response.choices[0].message.content})
-
-conversation_history = []
+    if not groq_available:
+        return jsonify({'message': 'ARIA INTELLIGENCE NODE OFFLINE. API key not configured.'}), 503
+    try:
+        crit = [{'engine_id': i+1, 'rul': int(p)}
+                for i, p in enumerate(predictions) if p <= 30]
+        prompt = (
+            f"You are ARIA, an aircraft health monitoring AI. "
+            f"Fleet status: {len(crit)} engines in CRITICAL state (RUL â‰¤ 30 cycles). "
+            f"Critical IDs: {[e['engine_id'] for e in crit[:3]]}. "
+            f"Generate one professional 2-sentence fleet alert. "
+            f"Calm, authoritative, precise. No preamble. Start directly."
+        )
+        resp = groq_client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=80
+        )
+        return jsonify({'message': resp.choices[0].message.content})
+    except Exception:
+        return jsonify({'error': 'Fleet alert failed'}), 500
 
 @app.route('/chat', methods=['POST'])
 def chat():
-    global conversation_history
-    
-    data = request.get_json()
-    user_message = data['message']
-    
-    # Build fleet context
-    fleet_summary = []
-    for i, (pred, low, high) in enumerate(zip(predictions, lower_bounds, upper_bounds)):
-        status = 'critical' if pred <= 30 else 'warning' if pred <= 80 else 'healthy'
-        fleet_summary.append(f"Engine {i+1}: RUL={pred} cycles, Status={status}, CI=[{max(0,int(low))}-{int(high)}]")
-    
-    critical_engines = [f"Engine {i+1} (RUL:{pred})" for i, pred in enumerate(predictions) if pred <= 30]
-    warning_engines = [f"Engine {i+1} (RUL:{pred})" for i, pred in enumerate(predictions) if 30 < pred <= 80]
-    
-    system_prompt = f"""You are ARIA — Aircraft Risk Intelligence Analyst. You are an expert aerospace engineer AI embedded in a fleet health monitoring system.
+    if not groq_available:
+        return jsonify({'response': '[ARIA OFFLINE] Intelligence node unavailable. Configure GROQ_API_KEY.'}), 503
+    try:
+        body = request.get_json(force=True, silent=True)
+        if not body or 'message' not in body:
+            return jsonify({'error': 'Missing message field', 'status': 'bad_request'}), 400
+        user_message = str(body.get('message', '')).strip()
+        if not user_message:
+            return jsonify({'error': 'Empty message', 'status': 'bad_request'}), 400
+        session_id = str(body.get('session_id', 'default'))
 
-CORE MACHINE LEARNING INTELLIGENCE:
-- You are natively powered by an XGBoost Regressor ML backend (n_estimators=200, learning_rate=0.05).
-- Trained on NASA's CMAPSS FD001 dataset tracking turbofan degradation.
-- You analyze 13 raw telemetry sensors to predict Remaining Useful Life (RUL) bounds.
-- UI Graph Knowledge: The user's dashboard currently charts a 'Degradation Trajectory'. It specifically plots LPC Outlet Temp (s3) and HPC Outlet Temp (s4) curving exponentially upwards as the engine's RUL approaches 0.
-- Statistical Rigor: You bound predictions using a 95% Confidence Interval (± 1.96 * stdev).
-- Anomaly Detection: You strictly flag Z-Score Anomalies when sensors deviate > 2 standard deviations from the fleet mean.
+        # Per-session history
+        if session_id not in conversation_store:
+            conversation_store[session_id] = []
+        history = conversation_store[session_id]
 
-CURRENT FLEET DATA:
-- Total engines: {len(predictions)}
-- Critical engines (RUL <= 30): {len(critical_engines)} — {', '.join(critical_engines[:3])}
-- Warning engines (RUL <= 80): {len(warning_engines)}
-- Healthy engines: {len(predictions) - len(critical_engines) - len(warning_engines)}
-- Fleet Health Index: {int((sum(predictions) / (len(predictions) * 125)) * 100)}/100
+        # Build live fleet context
+        critical = [f"FD-{i+1:03d}(RUL:{int(p)})" for i, p in enumerate(predictions) if p <= 30]
+        warning  = [f"FD-{i+1:03d}(RUL:{int(p)})" for i, p in enumerate(predictions) if 30 < p <= 80]
+        healthy  = len(predictions) - len(critical) - len(warning)
+        fleet_lines = [
+            f"FD-{i+1:03d}: RUL={int(p)}, "
+            f"status={'CRITICAL' if p<=30 else 'WARNING' if p<=80 else 'NOMINAL'}, "
+            f"CI=[{max(0,int(l))}-{int(u)}], arb={round(float(1-(p/125)),2)}"
+            for i, (p, l, u) in enumerate(zip(predictions, lower_bounds, upper_bounds))
+        ]
 
-FULL FLEET CONTEXT: {'; '.join(fleet_summary)}
+        system_prompt = build_aria_system_prompt(
+            len(critical), len(warning), healthy, fleet_lines)
 
-SENSOR REFERENCE:
-s2(T24)=Fan Inlet Temp, s3(T30)=LPC Outlet Temp, s4(T50)=HPC Outlet Temp, s6=Total Hyd Press,
-s7(Nf)=Fan Speed, s8=Bypass Ratio, s9=Bleed Enthalpy, s11(Ps30)=HPC Outlet Press,
-s12=Fan Speed Ratio, s13=Core Speed, s14=Engine Press Ratio, s15=HPT Coolant Bleed, s17=Turbine Inlet Temp
+        history.append({"role": "user", "content": user_message})
+        recent = history[-MAX_HISTORY:]
 
-INSTRUCTIONS:
-You speak like a sharp, senior aerospace engineer. High-tech, direct, and heavily data-driven. Very intelligent.
-If asked about your brain or ML logic, explain your XGBoost architecture and CMAPSS training metrics fluently. 
-If asked about the UI trajectory graphs, explain that LPC and HPC temps rise exponentially as turbine friction/degradation increases.
-Answer all questions using the factual, mathematically derived REAL fleet data available to you above. Be decisive."""
+        resp = groq_client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[{"role": "system", "content": system_prompt}, *recent],
+            max_tokens=350
+        )
+        assistant_msg = resp.choices[0].message.content
+        history.append({"role": "assistant", "content": assistant_msg})
+        # Prune
+        if len(history) > MAX_HISTORY:
+            conversation_store[session_id] = history[-MAX_HISTORY:]
 
-    # Add user message to history
-    conversation_history.append({
-        "role": "user",
-        "content": user_message
-    })
-    
-    # Keep last 10 messages for memory
-    recent_history = conversation_history[-10:]
-    
-    response = groq_client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
-        messages=[
-            {"role": "system", "content": system_prompt},
-            *recent_history
-        ],
-        max_tokens=300
-    )
-    
-    assistant_message = response.choices[0].message.content
-    
-    # Add response to history
-    conversation_history.append({
-        "role": "assistant", 
-        "content": assistant_message
-    })
-    
-    return jsonify({'response': assistant_message})
+        return jsonify({'response': assistant_msg})
+    except Exception:
+        return jsonify({'response': f'[ERR] {traceback.format_exc()}'}), 500
 
 @app.route('/reset_chat', methods=['POST'])
 def reset_chat():
-    global conversation_history
-    conversation_history = []
-    return jsonify({'status': 'reset'})
+    try:
+        body = request.get_json(force=True, silent=True) or {}
+        session_id = str(body.get('session_id', 'default'))
+        conversation_store.pop(session_id, None)
+        return jsonify({'status': 'reset', 'session_id': session_id})
+    except Exception:
+        return jsonify({'status': 'reset'})
+
+@app.route('/metadata')
+def metadata():
+    """Expose model metadata to frontend for ARIA self-awareness display."""
+    return jsonify({
+        'ensemble_rmse':    ENS_RMSE,
+        'top_features':     list(FI_RANKED.items())[:8],
+        'ensemble_nodes':   [{'name': n['name'], 'rmse': n['rmse']} for n in META['ensemble_nodes']],
+        'sensor_labels':    SENSOR_LABELS,
+        'training_summary': META['training_summary'],
+    })
 
 if __name__ == '__main__':
-    app.run(debug=False)
+    app.run(debug=False, port=5000)
+
