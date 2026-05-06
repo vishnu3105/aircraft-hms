@@ -22,3 +22,11 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Python / ML
+__pycache__/
+*.pkl
+*.pyc
+feature_names.txt
+model_ens_*.pkl
+model_metadata.json

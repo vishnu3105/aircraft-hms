@@ -1,0 +1,1116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ARIA — Aircraft Risk Intelligence</title>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --bg: #050508;
+            --bg-card: #0a0a0f;
+            --bg-panel: #0d0d14;
+            --border: rgba(255,255,255,0.06);
+            --border-bright: rgba(255,255,255,0.12);
+            --accent: #76b900;
+            --accent-dim: rgba(118,185,0,0.1);
+            --accent-glow: rgba(118,185,0,0.25);
+            --red: #ff3b30;
+            --red-dim: rgba(255,59,48,0.1);
+            --amber: #ff9f0a;
+            --amber-dim: rgba(255,159,10,0.1);
+            --green: #30d158;
+            --green-dim: rgba(48,209,88,0.1);
+            --text: #e8e8f0;
+            --text-dim: rgba(232,232,240,0.4);
+            --text-muted: rgba(232,232,240,0.2);
+            --mono: 'JetBrains Mono', monospace;
+            --display: 'Syne', sans-serif;
+        }
+
+        html, body {
+            height: 100%;
+            background: var(--bg);
+            color: var(--text);
+            font-family: var(--mono);
+            overflow-x: hidden;
+        }
+
+        /* Scanlines */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.04) 2px, rgba(0,0,0,0.04) 4px);
+            pointer-events: none;
+            z-index: 9999;
+        }
+
+        /* Grid background */
+        body::after {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image:
+                linear-gradient(rgba(118,185,0,0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(118,185,0,0.03) 1px, transparent 1px);
+            background-size: 40px 40px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* HEADER */
+        .header {
+            position: relative;
+            z-index: 10;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 32px;
+            border-bottom: 0.5px solid var(--border);
+            background: rgba(5,5,8,0.9);
+            backdrop-filter: blur(20px);
+        }
+
+        .header-left { display: flex; align-items: center; gap: 20px; }
+
+        .logo {
+            font-family: var(--display);
+            font-size: 20px;
+            font-weight: 800;
+            letter-spacing: 0.1em;
+            color: var(--accent);
+            text-transform: uppercase;
+        }
+
+        .logo-sub {
+            font-size: 10px;
+            color: var(--text-muted);
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            margin-top: 2px;
+        }
+
+        .divider-v {
+            width: 0.5px;
+            height: 32px;
+            background: var(--border);
+        }
+
+        .sys-status {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            font-size: 10px;
+            color: var(--accent);
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+        }
+
+        .pulse {
+            width: 6px; height: 6px;
+            background: var(--accent);
+            border-radius: 50%;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; box-shadow: 0 0 6px var(--accent); }
+            50% { opacity: 0.4; box-shadow: none; }
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+            font-size: 11px;
+            color: var(--text-muted);
+            letter-spacing: 0.06em;
+        }
+
+        .header-stat { text-align: right; }
+        .header-stat-num {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text);
+            letter-spacing: -0.5px;
+        }
+
+        .header-stat-num.red { color: var(--red); }
+        .header-stat-num.amber { color: var(--amber); }
+        .header-stat-num.green { color: var(--green); }
+
+        /* MAIN */
+        .main {
+            position: relative;
+            z-index: 1;
+            padding: 32px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        /* SECTION HEADER */
+        .section-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .section-tag {
+            font-size: 10px;
+            color: var(--accent);
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            border: 0.5px solid rgba(118,185,0,0.3);
+            padding: 3px 8px;
+            border-radius: 2px;
+        }
+
+        .section-line {
+            flex: 1;
+            height: 0.5px;
+            background: var(--border);
+        }
+
+        /* ENGINE GRID */
+        .engine-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 12px;
+            margin-bottom: 40px;
+        }
+
+        .engine-card {
+            background: var(--bg-card);
+            border: 0.5px solid var(--border);
+            border-radius: 4px;
+            padding: 20px;
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .engine-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0;
+            width: 2px; height: 100%;
+            background: var(--border);
+            transition: background 0.2s;
+        }
+
+        .engine-card.critical::before { background: var(--red); }
+        .engine-card.warning::before { background: var(--amber); }
+        .engine-card.healthy::before { background: var(--green); }
+
+        .engine-card:hover {
+            border-color: var(--border-bright);
+            background: var(--bg-panel);
+            transform: translateY(-1px);
+        }
+
+        .engine-card.critical {
+            border-color: rgba(255,59,48,0.2);
+        }
+
+        .engine-card-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 16px;
+        }
+
+        .engine-id {
+            font-family: var(--display);
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text);
+            letter-spacing: -0.3px;
+        }
+
+        .engine-id span { color: var(--text-muted); font-weight: 400; font-size: 13px; }
+
+        .status-tag {
+            font-size: 9px;
+            font-weight: 700;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            padding: 3px 8px;
+            border-radius: 2px;
+        }
+
+        .tag-critical { background: var(--red-dim); color: var(--red); border: 0.5px solid rgba(255,59,48,0.3); }
+        .tag-warning { background: var(--amber-dim); color: var(--amber); border: 0.5px solid rgba(255,159,10,0.3); }
+        .tag-healthy { background: var(--green-dim); color: var(--green); border: 0.5px solid rgba(48,209,88,0.3); }
+
+        /* RUL display */
+        .rul-display {
+            display: flex;
+            align-items: baseline;
+            gap: 6px;
+            margin-bottom: 12px;
+        }
+
+        .rul-num {
+            font-family: var(--display);
+            font-size: 36px;
+            font-weight: 800;
+            letter-spacing: -1px;
+            line-height: 1;
+        }
+
+        .rul-num.red { color: var(--red); }
+        .rul-num.amber { color: var(--amber); }
+        .rul-num.green { color: var(--green); }
+
+        .rul-unit {
+            font-size: 11px;
+            color: var(--text-muted);
+            letter-spacing: 0.05em;
+        }
+
+        /* Progress bar */
+        .progress {
+            width: 100%;
+            height: 2px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 1px;
+            overflow: hidden;
+            margin-bottom: 12px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            border-radius: 1px;
+            transition: width 0.5s ease;
+        }
+
+        .engine-meta {
+            display: flex;
+            justify-content: space-between;
+            font-size: 10px;
+            color: var(--text-muted);
+            letter-spacing: 0.05em;
+        }
+
+        /* MODAL */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(5,5,8,0.92);
+            z-index: 1000;
+            backdrop-filter: blur(8px);
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .modal-overlay.open { display: flex; }
+
+        .modal {
+            background: var(--bg-panel);
+            border: 0.5px solid var(--border-bright);
+            border-radius: 6px;
+            width: 100%;
+            max-width: 860px;
+            max-height: 90vh;
+            overflow-y: auto;
+            animation: modalIn 0.3s cubic-bezier(0.16,1,0.3,1) both;
+        }
+
+        @keyframes modalIn {
+            from { opacity: 0; transform: scale(0.96) translateY(10px); }
+            to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 24px;
+            border-bottom: 0.5px solid var(--border);
+        }
+
+        .modal-title {
+            font-family: var(--display);
+            font-size: 20px;
+            font-weight: 700;
+            letter-spacing: -0.3px;
+        }
+
+        .modal-close {
+            width: 32px; height: 32px;
+            background: rgba(255,255,255,0.04);
+            border: 0.5px solid var(--border);
+            border-radius: 4px;
+            color: var(--text-dim);
+            font-size: 16px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .modal-close:hover { background: rgba(255,255,255,0.08); color: var(--text); }
+
+        .modal-body { padding: 24px; }
+
+        /* Modal grid */
+        .modal-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .modal-stat {
+            background: var(--bg-card);
+            border: 0.5px solid var(--border);
+            border-radius: 4px;
+            padding: 16px;
+        }
+
+        .modal-stat-label {
+            font-size: 10px;
+            color: var(--text-muted);
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+
+        .modal-stat-val {
+            font-family: var(--display);
+            font-size: 32px;
+            font-weight: 800;
+            letter-spacing: -1px;
+        }
+
+        /* Sensor grid */
+        .sensor-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+
+        .sensor-item {
+            background: var(--bg-card);
+            border: 0.5px solid var(--border);
+            border-radius: 4px;
+            padding: 10px 12px;
+        }
+
+        .sensor-name {
+            font-size: 9px;
+            color: var(--text-muted);
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+
+        .sensor-val {
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text);
+        }
+
+        /* ARIA panel */
+        .aria-panel {
+            background: rgba(118,185,0,0.04);
+            border: 0.5px solid rgba(118,185,0,0.2);
+            border-radius: 4px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .aria-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 14px;
+        }
+
+        .aria-tag {
+            font-size: 9px;
+            font-weight: 700;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            color: var(--accent);
+            background: var(--accent-dim);
+            border: 0.5px solid rgba(118,185,0,0.3);
+            padding: 3px 8px;
+            border-radius: 2px;
+        }
+
+        .aria-text {
+            font-size: 13px;
+            color: rgba(232,232,240,0.75);
+            line-height: 1.8;
+            letter-spacing: 0.02em;
+        }
+
+        .aria-typing {
+            display: inline-block;
+            width: 8px; height: 14px;
+            background: var(--accent);
+            animation: blink 0.8s step-end infinite;
+            vertical-align: middle;
+            margin-left: 2px;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
+
+        /* Chart */
+        .chart-wrap {
+            background: var(--bg-card);
+            border: 0.5px solid var(--border);
+            border-radius: 4px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+
+        .chart-label {
+            font-size: 10px;
+            color: var(--text-muted);
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            margin-bottom: 12px;
+        }
+
+        canvas { width: 100% !important; }
+
+        /* PREDICTOR */
+        .predictor {
+            background: var(--bg-card);
+            border: 0.5px solid var(--border);
+            border-radius: 4px;
+            padding: 24px;
+            margin-bottom: 20px;
+        }
+
+        .scenario-row {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+
+        .scenario-btn {
+            padding: 7px 14px;
+            background: transparent;
+            border: 0.5px solid var(--border);
+            border-radius: 2px;
+            color: var(--text-dim);
+            font-family: var(--mono);
+            font-size: 11px;
+            letter-spacing: 0.05em;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .scenario-btn:hover, .scenario-btn.active {
+            border-color: rgba(118,185,0,0.4);
+            color: var(--accent);
+            background: var(--accent-dim);
+        }
+
+        .sensor-inputs {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+
+        .input-wrap { display: flex; flex-direction: column; gap: 4px; }
+
+        .input-label {
+            font-size: 9px;
+            color: var(--text-muted);
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+        }
+
+        .sensor-input {
+            padding: 8px 10px;
+            background: rgba(255,255,255,0.03);
+            border: 0.5px solid var(--border);
+            border-radius: 2px;
+            color: var(--text);
+            font-family: var(--mono);
+            font-size: 12px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .sensor-input:focus { border-color: rgba(118,185,0,0.3); }
+
+        .predict-btn {
+            width: 100%;
+            padding: 13px;
+            background: var(--accent);
+            border: none;
+            border-radius: 2px;
+            color: #050508;
+            font-family: var(--display);
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+
+        .predict-btn:hover { opacity: 0.85; }
+
+        /* Result */
+        .result-panel {
+            display: none;
+            background: var(--bg-card);
+            border: 0.5px solid var(--border);
+            border-radius: 4px;
+            padding: 24px;
+            margin-top: 16px;
+        }
+
+        .result-grid {
+            display: grid;
+            grid-template-columns: auto 1fr auto;
+            gap: 24px;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .result-rul-big {
+            font-family: var(--display);
+            font-size: 72px;
+            font-weight: 800;
+            letter-spacing: -3px;
+            line-height: 1;
+        }
+
+        .result-bar-wrap { flex: 1; }
+
+        .result-bar-track {
+            width: 100%;
+            height: 4px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 2px;
+            overflow: hidden;
+            margin-bottom: 8px;
+        }
+
+        .result-bar-fill {
+            height: 100%;
+            border-radius: 2px;
+            transition: width 0.8s ease, background 0.5s;
+        }
+
+        .result-status-big {
+            font-family: var(--display);
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            padding: 8px 16px;
+            border-radius: 2px;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+    </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+    <div class="header-left">
+        <div>
+            <div class="logo">ARIA</div>
+            <div class="logo-sub">Aircraft Risk Intelligence Analyst</div>
+        </div>
+        <div class="divider-v"></div>
+        <div class="sys-status">
+            <div class="pulse"></div>
+            Systems Online
+        </div>
+        <div class="divider-v"></div>
+        <div class="sys-status" style="color: var(--text-muted);">
+            NASA CMAPSS · FD001 · XGBoost
+        </div>
+    </div>
+    <div class="header-right">
+        <div class="header-stat">
+            <div class="header-stat-num red" id="hdr-critical">—</div>
+            <div>Critical</div>
+        </div>
+        <div class="header-stat">
+            <div class="header-stat-num amber" id="hdr-warning">—</div>
+            <div>Warning</div>
+        </div>
+        <div class="header-stat">
+            <div class="header-stat-num green" id="hdr-healthy">—</div>
+            <div>Healthy</div>
+        </div>
+    </div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+
+    <!-- FLEET -->
+    <div class="section-header">
+        <div class="section-tag">Fleet Status</div>
+        <div class="section-line"></div>
+        <div style="font-size:10px; color: var(--text-muted); letter-spacing:0.08em;">SORTED BY RISK · CLICK ENGINE FOR FULL ANALYSIS</div>
+    </div>
+
+    <div class="engine-grid" id="engine-grid"></div>
+
+<!-- ANOMALY SECTION -->
+<div class="section-header" style="margin-top:40px;">
+    <div class="section-tag" style="color:var(--red); border-color:rgba(255,59,48,0.3);">Anomaly Detection</div>
+    <div class="section-line"></div>
+    <div style="font-size:10px; color:var(--text-muted); letter-spacing:0.08em;">SENSORS DEVIATING >2σ FROM FLEET AVERAGE</div>
+</div>
+
+<div class="engine-grid" id="anomaly-grid"></div>
+
+    <!-- PREDICTOR -->
+    <div class="section-header">
+        <div class="section-tag">Manual RUL Predictor</div>
+        <div class="section-line"></div>
+    </div>
+
+    <div class="predictor">
+        <div class="scenario-row" id="scenario-row">
+            <button class="scenario-btn active" onclick="loadScenario('healthy', this)">Healthy</button>
+            <button class="scenario-btn" onclick="loadScenario('warning', this)">Degrading</button>
+            <button class="scenario-btn" onclick="loadScenario('critical', this)">Critical</button>
+            <button class="scenario-btn" onclick="loadScenario('custom', this)">Custom</button>
+        </div>
+        <div class="sensor-inputs" id="sensor-inputs"></div>
+        <button class="predict-btn" onclick="runPredict()">Run Prediction →</button>
+    </div>
+
+    <div class="result-panel" id="result-panel">
+        <div class="result-grid">
+            <div>
+                <div style="font-size:10px; color:var(--text-muted); letter-spacing:0.1em; text-transform:uppercase; margin-bottom:6px;">Cycles Remaining</div>
+                <div class="result-rul-big" id="result-rul">—</div>
+                <div style="font-size:10px; color:var(--text-muted); margin-top:4px;">cycles until failure</div>
+            </div>
+            <div class="result-bar-wrap">
+                <div style="font-size:10px; color:var(--text-muted); letter-spacing:0.08em; margin-bottom:10px;">HEALTH INDEX</div>
+                <div class="result-bar-track">
+                    <div class="result-bar-fill" id="result-bar"></div>
+                </div>
+                <div style="display:flex; justify-content:space-between; font-size:9px; color:var(--text-muted);">
+                    <span>CRITICAL</span><span>HEALTHY</span>
+                </div>
+            </div>
+            <div class="result-status-big" id="result-status">—</div>
+        </div>
+
+        <!-- ARIA Analysis for predictor -->
+        <div class="aria-panel" id="pred-aria-panel" style="display:none;">
+            <div class="aria-header">
+                <div class="aria-tag">ARIA Analysis</div>
+                <div class="pulse" style="width:5px;height:5px;"></div>
+            </div>
+            <div class="aria-text" id="pred-aria-text">
+                <span class="aria-typing"></span>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- ENGINE DETAIL MODAL -->
+<div class="modal-overlay" id="modal" onclick="closeModal(event)">
+    <div class="modal">
+        <div class="modal-header">
+            <div>
+                <div class="modal-title" id="modal-title">Engine —</div>
+                <div style="font-size:10px; color:var(--text-muted); letter-spacing:0.08em; margin-top:3px;">FULL DIAGNOSTIC REPORT</div>
+            </div>
+            <button class="modal-close" onclick="document.getElementById('modal').classList.remove('open')">✕</button>
+        </div>
+        <div class="modal-body">
+
+            <div class="modal-grid">
+                <div class="modal-stat">
+                    <div class="modal-stat-label">Predicted RUL</div>
+                    <div class="modal-stat-val" id="modal-rul">—</div>
+                    <div style="font-size:10px; color:var(--text-muted); margin-top:4px;">cycles remaining</div>
+                </div>
+                <div class="modal-stat">
+                    <div class="modal-stat-label">Actual RUL</div>
+                    <div class="modal-stat-val" id="modal-actual" style="color:var(--text-dim);">—</div>
+                    <div style="font-size:10px; color:var(--text-muted); margin-top:4px;">ground truth</div>
+                    <div class="modal-stat" style="grid-column: span 2;">
+    <div class="modal-stat-label">95% Confidence Interval</div>
+    <div style="display:flex; align-items:center; gap:12px; margin-top:8px;">
+        <div style="font-family:var(--display); font-size:24px; font-weight:700; color:var(--text-dim);" id="modal-lower">—</div>
+        <div style="flex:1; height:3px; background:rgba(255,255,255,0.05); border-radius:2px; position:relative;">
+            <div id="modal-ci-bar" style="position:absolute; height:100%; background:var(--accent); border-radius:2px;"></div>
+        </div>
+        <div style="font-family:var(--display); font-size:24px; font-weight:700; color:var(--text-dim);" id="modal-upper">—</div>
+    </div>
+    <div style="font-size:10px; color:var(--text-muted); margin-top:6px; letter-spacing:0.06em;">LOWER BOUND — UPPER BOUND · CYCLES</div>
+</div>
+                </div>
+            </div>
+
+            <!-- ARIA -->
+            <div class="aria-panel" id="modal-aria">
+                <div class="aria-header">
+                    <div class="aria-tag">ARIA</div>
+                    <div class="pulse" style="width:5px;height:5px;"></div>
+                    <div style="font-size:10px; color:var(--text-muted); letter-spacing:0.06em;">ANALYZING ENGINE DATA...</div>
+                </div>
+                <div class="aria-text" id="modal-aria-text">
+                    <span class="aria-typing"></span>
+                </div>
+            </div>
+
+            <!-- Risk bar -->
+            <div class="chart-wrap">
+                <div class="chart-label">Risk Timeline — Cycles to Failure</div>
+                <div style="position:relative; height: 60px; display:flex; align-items:center; gap:4px;" id="risk-timeline"></div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script>
+    const sensorNames = ['s2','s3','s4','s6','s7','s8','s9','s11','s12','s13','s14','s15','s17'];
+
+    const sensorLabels = {
+        's2': 'Fan Inlet Temp',
+        's3': 'LPC Outlet Temp',
+        's4': 'HPC Outlet Temp',
+        's6': 'Total Hyd Press',
+        's7': 'Fan Speed',
+        's8': 'Bypass Ratio',
+        's9': 'Bleed Enthalpy',
+        's11': 'HPC Outlet Press',
+        's12': 'Fan Speed Ratio',
+        's13': 'Core Speed',
+        's14': 'Engine Press Ratio',
+        's15': 'HPT Coolant Bleed',
+        's17': 'Turbine Inlet Temp'
+    };
+
+    const scenarios = {
+        healthy: [641.82, 1589.7, 1400.6, 21.61, 554.36, 2388.06, 9046.19, 47.47, 521.66, 2388.02, 8138.62, 8.4195, 392.0],
+        warning: [642.66, 1586.46, 1401.84, 21.61, 553.19, 2388.06, 9051.28, 47.22, 521.9, 2388.08, 8131.52, 8.4445, 394.0],
+        critical: [643.33, 1591.71, 1413.73, 21.61, 551.69, 2388.24, 9039.1, 48.07, 520.54, 2388.26, 8120.08, 8.4595, 393.0]
+    };
+
+    let allEngines = [];
+
+    function getColor(status) {
+        if (status === 'critical') return 'var(--red)';
+        if (status === 'warning') return 'var(--amber)';
+        return 'var(--green)';
+    }
+
+    function getRulClass(status) {
+        if (status === 'critical') return 'red';
+        if (status === 'warning') return 'amber';
+        return 'green';
+    }
+
+    function getPercent(rul) {
+        return Math.min((rul / 200) * 100, 100);
+    }
+
+    // Load engines
+    fetch('/engines')
+        .then(r => r.json())
+        .then(data => {
+            allEngines = data.sort((a, b) => a.predicted_rul - b.predicted_rul);
+
+            const critical = data.filter(e => e.status === 'critical').length;
+            const warning = data.filter(e => e.status === 'warning').length;
+            const healthy = data.filter(e => e.status === 'healthy').length;
+
+            document.getElementById('hdr-critical').innerText = critical;
+            document.getElementById('hdr-warning').innerText = warning;
+            document.getElementById('hdr-healthy').innerText = healthy;
+
+            speakAlert(critical);
+
+            const grid = document.getElementById('engine-grid');
+            allEngines.forEach((e, i) => {
+                const card = document.createElement('div');
+                card.className = `engine-card ${e.status}`;
+                card.style.animationDelay = `${i * 0.03}s`;
+                card.onclick = () => openModal(e);
+                card.innerHTML = `
+                    <div class="engine-card-top">
+                        <div class="engine-id">ENG-${String(e.engine_id).padStart(3,'0')} <span>/ ${e.status.toUpperCase()}</span></div>
+                        <div class="status-tag tag-${e.status}">${e.status}</div>
+                    </div>
+                    <div class="rul-display">
+                        <div class="rul-num ${getRulClass(e.status)}">${e.predicted_rul}</div>
+                        <div class="rul-unit">cycles left</div>
+                    </div>
+                    <div class="progress">
+                        <div class="progress-fill" style="width:${getPercent(e.predicted_rul)}%; background:${getColor(e.status)};"></div>
+                    </div>
+                    <div class="engine-meta">
+    <span>ACTUAL: ${e.actual_rul} cycles</span>
+    <span style="color:var(--text-muted);">95% CI: ${e.lower_bound}—${e.upper_bound}</span>
+</div>
+                 `;
+                grid.appendChild(card);
+            });
+        });
+
+    // Modal
+    function openModal(engine, flaggedSensors = []) {
+        document.getElementById('modal').classList.add('open');
+        document.getElementById('modal-title').innerText = `ENG-${String(engine.engine_id).padStart(3,'0')}`;
+        document.getElementById('modal-title').style.color = getColor(engine.status);
+
+        const rulEl = document.getElementById('modal-rul');
+        rulEl.innerText = engine.predicted_rul;
+        rulEl.style.color = getColor(engine.status);
+
+        document.getElementById('modal-actual').innerText = engine.actual_rul;
+        document.getElementById('modal-lower').innerText = engine.lower_bound;
+document.getElementById('modal-upper').innerText = engine.upper_bound;
+
+        // Risk timeline
+        const timeline = document.getElementById('risk-timeline');
+        timeline.innerHTML = '';
+        const total = 200;
+        const segments = 20;
+        for (let i = 0; i < segments; i++) {
+            const seg = document.createElement('div');
+            const threshold = (i / segments) * total;
+            let color = 'rgba(48,209,88,0.3)';
+            if (threshold < engine.predicted_rul * 0.3) color = 'rgba(255,59,48,0.6)';
+            else if (threshold < engine.predicted_rul * 0.6) color = 'rgba(255,159,10,0.4)';
+            seg.style.cssText = `flex:1; height:${20 + Math.random()*20}px; background:${color}; border-radius:1px; transition: height 0.3s;`;
+            timeline.appendChild(seg);
+        }
+
+        // ARIA analysis
+        const ariaText = document.getElementById('modal-aria-text');
+        ariaText.innerHTML = '<span class="aria-typing"></span>';
+
+        // Get sensor data for this engine from scenarios (simulate)
+        const sensorData = scenarios.warning.map((v, i) => v + (Math.random() - 0.5) * 2);
+
+        fetch('/analyze', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+        rul: engine.predicted_rul,
+        status: engine.status,
+        sensors: sensorData,
+        engine_id: engine.engine_id,
+        flagged_sensors: flaggedSensors
+    })
+})
+        .then(r => r.json())
+        .then(d => {
+            typeText(ariaText, d.analysis);
+        });
+    }
+
+    function closeModal(e) {
+        if (e.target === document.getElementById('modal')) {
+            document.getElementById('modal').classList.remove('open');
+        }
+    }
+
+    // Typewriter effect
+    function typeText(el, text) {
+        el.innerHTML = '';
+        let i = 0;
+        const interval = setInterval(() => {
+            el.innerHTML = text.slice(0, i) + '<span class="aria-typing"></span>';
+            i++;
+            if (i > text.length) {
+                el.innerHTML = text;
+                clearInterval(interval);
+            }
+        }, 18);
+    }
+
+    // Predictor
+    function buildInputs(values, disabled) {
+        const container = document.getElementById('sensor-inputs');
+        container.innerHTML = '';
+        sensorNames.forEach((name, i) => {
+            const wrap = document.createElement('div');
+            wrap.className = 'input-wrap';
+            wrap.innerHTML = `
+                <div class="input-label">${sensorLabels[name] || name}</div>
+                <input class="sensor-input" type="number" id="input-${name}"
+                    value="${values ? values[i].toFixed(2) : ''}"
+                    ${disabled ? 'disabled' : ''} step="0.01">
+            `;
+            container.appendChild(wrap);
+        });
+    }
+    // ARIA Voice Alert on page load
+let alertSpoken = false;
+
+function speakAlert(criticalCount) {
+    if (criticalCount === 0) return;
+
+    fetch('/fleet_alert')
+        .then(r => r.json())
+        .then(data => {
+            document.addEventListener('click', function triggerVoice() {
+                if (alertSpoken) return;
+                alertSpoken = true;
+
+                const msg = new SpeechSynthesisUtterance();
+msg.text = data.message;
+msg.rate = 0.88;
+msg.pitch = 1.1;
+msg.volume = 1;
+
+window.speechSynthesis.cancel();
+
+const setVoiceAndSpeak = () => {
+    const voices = window.speechSynthesis.getVoices();
+    const zira = voices.find(v => v.name === 'Microsoft Zira - English (United States)');
+    if (zira) msg.voice = zira;
+    window.speechSynthesis.speak(msg);
+};
+
+if (window.speechSynthesis.getVoices().length > 0) {
+    setVoiceAndSpeak();
+} else {
+    window.speechSynthesis.onvoiceschanged = setVoiceAndSpeak;
+}
+            });
+        });
+    }
+
+    function loadScenario(type, btn) {
+        document.querySelectorAll('.scenario-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        buildInputs(type === 'custom' ? null : scenarios[type], false);
+    }
+
+    function runPredict() {
+        const sensors = sensorNames.map(n => parseFloat(document.getElementById('input-' + n).value) || 0);
+
+        fetch('/predict', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sensors })
+        })
+        .then(r => r.json())
+        .then(d => {
+            const color = getColor(d.status);
+            const percent = getPercent(d.rul);
+
+            document.getElementById('result-panel').style.display = 'block';
+            document.getElementById('result-rul').innerText = d.rul;
+            document.getElementById('result-rul').style.color = color;
+
+            const bar = document.getElementById('result-bar');
+            bar.style.width = percent + '%';
+            bar.style.background = color;
+
+            const statusEl = document.getElementById('result-status');
+            statusEl.innerText = d.status.toUpperCase();
+            statusEl.style.color = color;
+            statusEl.style.background = `${color}15`;
+            statusEl.style.border = `0.5px solid ${color}40`;
+
+            // ARIA for predictor
+            const ariaPanel = document.getElementById('pred-aria-panel');
+            const ariaText = document.getElementById('pred-aria-text');
+            ariaPanel.style.display = 'block';
+            ariaText.innerHTML = '<span class="aria-typing"></span>';
+
+            fetch('/analyze', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ rul: d.rul, status: d.status, sensors })
+            })
+            .then(r => r.json())
+            .then(a => {
+                typeText(ariaText, a.analysis);
+            });
+
+            document.getElementById('result-panel').scrollIntoView({ behavior: 'smooth' });
+        });
+    }
+
+    // Init predictor
+    buildInputs(scenarios.healthy, false);
+
+    // Load anomalies
+fetch('/anomalies')
+    .then(r => r.json())
+    .then(data => {
+        const grid = document.getElementById('anomaly-grid');
+        data.forEach(e => {
+            const card = document.createElement('div');
+            card.className = 'engine-card critical';
+card.style.cursor = 'pointer';
+card.onclick = () => {
+    // Find this engine in allEngines
+    const engineData = allEngines.find(eng => eng.engine_id === e.engine_id) || {
+        engine_id: e.engine_id,
+        predicted_rul: 50,
+        actual_rul: '?',
+        status: 'critical',
+        lower_bound: 30,
+        upper_bound: 70
+    };
+    openModal(engineData, e.flagged_sensors);
+};
+card.innerHTML = `
+                <div class="engine-card-top">
+                    <div class="engine-id">ENG-${String(e.engine_id).padStart(3,'0')}</div>
+                    <div class="status-tag tag-critical">${e.severity} sensors flagged</div>
+                </div>
+                <div style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px;">
+                    ${e.flagged_sensors.map(s => `
+                        <div style="
+                            font-size:10px;
+                            padding:3px 8px;
+                            background:var(--red-dim);
+                            border:0.5px solid rgba(255,59,48,0.3);
+                            border-radius:2px;
+                            color:var(--red);
+                            letter-spacing:0.06em;
+                        ">${sensorLabels[s] || s}</div>
+                    `).join('')}
+                </div>
+                <div class="engine-meta">
+                    <span style="color:var(--red);">ANOMALOUS SENSOR PATTERN</span>
+                    <span>→ INVESTIGATE</span>
+                </div>
+            `;
+            grid.appendChild(card);
+        });
+    });
+
+</script>
+
+</body>
+</html>
