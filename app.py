@@ -1,11 +1,11 @@
-﻿from flask import Flask, render_template, jsonify, request
+from flask import Flask, render_template, jsonify, request
 from flask_cors import CORS
 import pandas as pd
 import numpy as np
 from xgboost import XGBRegressor
 import pickle, os, json, traceback
 
-# Ã¢â€â‚¬Ã¢â€â‚¬ Groq (graceful fallback) Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+# --- Groq (graceful fallback) ---
 groq_available = False
 groq_client = None
 try:
@@ -14,16 +14,16 @@ try:
     if _key:
         groq_client = Groq(api_key=_key)
         groq_available = True
-        print("Ã¢Å“â€œ Groq ARIA Intelligence Node online.")
+        print("[OK] Groq ARIA Intelligence Node online.")
     else:
-        print("Ã¢Å¡Â   GROQ_API_KEY not set Ã¢â‚¬â€ ARIA LLM features disabled.")
+        print("[!] GROQ_API_KEY not set - ARIA LLM features disabled.")
 except Exception as e:
-    print(f"Ã¢Å¡Â   Groq init failed: {e} Ã¢â‚¬â€ ARIA LLM features disabled.")
+    print(f"[!] Groq init failed: {e} - ARIA LLM features disabled.")
 
 app = Flask(__name__)
 CORS(app, origins=["http://localhost:5173", "http://localhost:3000", "http://localhost:5000"])
 
-# Ã¢â€â‚¬Ã¢â€â‚¬ Schema Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+# --- Schema ---
 columns = ['engine_id','cycle','setting1','setting2','setting3',
            's1','s2','s3','s4','s5','s6','s7','s8','s9','s10',
            's11','s12','s13','s14','s15','s16','s17','s18','s19','s20','s21']
@@ -31,15 +31,15 @@ drop_cols_test = ['engine_id','cycle','setting1','setting2','setting3',
                   's1','s5','s10','s16','s18','s19','s20','s21']
 feature_names  = ['s2','s3','s4','s6','s7','s8','s9','s11','s12','s13','s14','s15','s17']
 
-# Ã¢â€â‚¬Ã¢â€â‚¬ Load Ensemble Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+# --- Load Ensemble ---
 print("Loading Bayesian Ensemble Models...")
 models = []
 for i in range(5):
     with open(f'model_ens_{i}.pkl', 'rb') as f:
         models.append(pickle.load(f))
-print(f"Ã¢Å“â€œ {len(models)} ensemble nodes loaded.")
+print(f"[OK] {len(models)} ensemble nodes loaded.")
 
-# Ã¢â€â‚¬Ã¢â€â‚¬ Load Metadata Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+# --- Load Metadata ---
 print("Loading model metadata...")
 with open('model_metadata.json', 'r') as f:
     META = json.load(f)
@@ -55,7 +55,7 @@ SENSOR_LABELS       = META['sensor_labels']
 # Top 5 most important features for ARIA context
 TOP_FEATURES = list(FI_RANKED.keys())[:5]
 
-# Ã¢â€â‚¬Ã¢â€â‚¬ Load Test Data Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+# --- Load Test Data ---
 def build_temporal_features(df, features, w=5):
     df = df.sort_values(['engine_id','cycle'])
     rm = df.groupby('engine_id')[features].rolling(w, min_periods=1).mean().reset_index(0, drop=True)
@@ -73,7 +73,7 @@ test      = build_temporal_features(test, feature_names)
 test_last = test.groupby('engine_id').last().reset_index()
 X_test    = test_last.drop(columns=drop_cols_test)
 
-# Ã¢â€â‚¬Ã¢â€â‚¬ Ensemble Inference (fleet) Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+# --- Ensemble Inference (fleet) ---
 raw_preds   = np.array([m.predict(X_test) for m in models])
 pred_mean   = np.mean(raw_preds, axis=0)
 pred_std    = np.std(raw_preds, axis=0)
@@ -81,9 +81,9 @@ predictions = pred_mean.astype(int)
 lower_bounds = np.clip(pred_mean - 1.96 * pred_std, 0, None).astype(int)
 upper_bounds = np.clip(pred_mean + 1.96 * pred_std, 0, 125).astype(int)
 
-# Ã¢â€â‚¬Ã¢â€â‚¬ Physics Validation Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+# --- Physics Validation ---
 def validate_sensors(row_series):
-    """Returns (is_fault, diagnostic_message). Pure data-driven Ã¢â‚¬â€ no hardcoded engine IDs."""
+    """Returns (is_fault, diagnostic_message). Pure data-driven - no hardcoded engine IDs."""
     for col in feature_names:
         v = row_series[col]
         if v <= 0:
@@ -91,14 +91,14 @@ def validate_sensors(row_series):
                           f"physically impossible value ({v:.4f}). "
                           f"Instrumentation offline or short-to-ground detected.")
     if row_series['s7'] > 15000:
-        return True, (f"RPM OVERLIMIT: s7 (Fan Speed) reads {row_series['s7']:.0f} RPM Ã¢â‚¬â€ "
+        return True, (f"RPM OVERLIMIT: s7 (Fan Speed) reads {row_series['s7']:.0f} RPM - "
                       f"exceeds mechanical material shatter limit. Tachometer calibration failure.")
     if row_series['s2'] > row_series['s3']:
-        return True, (f"THERMO MISMATCH: T24 Fan Inlet ({row_series['s2']:.2f}Ã‚Â°R) hotter than "
-                      f"T30 LPC Outlet ({row_series['s3']:.2f}Ã‚Â°R). Inviolable thermodynamic law violated.")
+        return True, (f"THERMO MISMATCH: T24 Fan Inlet ({row_series['s2']:.2f} deg R) hotter than "
+                      f"T30 LPC Outlet ({row_series['s3']:.2f} deg R). Inviolable thermodynamic law violated.")
     return False, ""
 
-# Ã¢â€â‚¬Ã¢â€â‚¬ Degradation Mode Classifier Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+# --- Degradation Mode Classifier ---
 def classify_failure_mode(row):
     z = (row[feature_names] - FLEET_SENSOR_MEAN) / FLEET_SENSOR_STD
     if row.get('s7_std_5', 0) > 1.5 * FLEET_TEMPORAL_MEAN.get('s7_std_5', 1):
@@ -117,7 +117,7 @@ def classify_failure_mode(row):
     }
     return mapping.get(max_z_col, "UNKNOWN GAS PATH DEGRADATION SIGNATURE")
 
-# Ã¢â€â‚¬Ã¢â€â‚¬ Unified Arbitration Engine (F1) Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+# --- Unified Arbitration Engine (F1) ---
 def compute_arbitration(rul, lower, upper, flagged_sensors, is_sensor_fault, ens_std_val):
     """Weighted multi-signal severity fusion. Returns (score 0-1, unified_verdict)."""
     w_ml      = 0.40
@@ -146,16 +146,16 @@ def compute_arbitration(rul, lower, upper, flagged_sensors, is_sensor_fault, ens
 
     return round(float(combined), 3), verdict
 
-# Ã¢â€â‚¬Ã¢â€â‚¬ Conversation Store (per-session) Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+# --- Conversation Store (per-session) ---
 conversation_store = {}   # { session_id: [{"role": ..., "content": ...}, ...] }
 MAX_HISTORY = 20
 
-# Ã¢â€â‚¬Ã¢â€â‚¬ ARIA System Prompt (built once at startup with real ML metadata) Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+# --- ARIA System Prompt (built once at startup with real ML metadata) ---
 def build_aria_system_prompt(fleet_critical, fleet_warning, fleet_healthy, fleet_summary_lines):
     node_details = "\n".join([
         f"  Node {n['node_id']} [{n['name']}]: depth={n['params']['max_depth']}, "
         f"lr={n['params']['learning_rate']}, n_est={n['params']['n_estimators']}, "
-        f"subsample={n['params']['subsample']} Ã¢â€ â€™ RMSE={n['rmse']} cycles"
+        f"subsample={n['params']['subsample']} -> RMSE={n['rmse']} cycles"
         for n in META['ensemble_nodes']
     ])
     top_fi = "\n".join([
@@ -165,23 +165,23 @@ def build_aria_system_prompt(fleet_critical, fleet_warning, fleet_healthy, fleet
     fleet_str = "; ".join(fleet_summary_lines[:10]) + (
         f" ... and {len(fleet_summary_lines)-10} more engines" if len(fleet_summary_lines) > 10 else "")
 
-    return f"""You are ARIA Ã¢â‚¬â€ Aircraft Risk Intelligence Analyst. You are not a chatbot. You are a senior aerospace engineer AI embedded directly inside a fleet health monitoring system that YOU power.
+    return f"""You are ARIA - Aircraft Risk Intelligence Analyst. You are not a chatbot. You are a senior aerospace engineer AI embedded directly inside a fleet health monitoring system that YOU power.
 
 YOUR ML ARCHITECTURE (you built this, you know it cold):
-- Algorithm: XGBoost Gradient-Boosted Ensemble Ã¢â‚¬â€ 5 architecturally diverse regressors
+- Algorithm: XGBoost Gradient-Boosted Ensemble - 5 architecturally diverse regressors
 - Each node has a different inductive bias to generate true epistemic uncertainty:
 {node_details}
-- Ensemble inference: mean prediction = RUL estimate; std across nodes = uncertainty (ÃÆ’)
-- 95% Confidence Interval: [RUL Ã¢Ë†â€™ 1.96ÃÆ’, RUL + 1.96ÃÆ’], clipped to [0, 125] cycles
+- Ensemble inference: mean prediction = RUL estimate; std across nodes = uncertainty (sigma)
+- 95% Confidence Interval: [RUL - 1.96 * sigma, RUL + 1.96 * sigma], clipped to [0, 125] cycles
 - Ensemble RMSE on NASA CMAPSS FD001 test set: {ENS_RMSE:.2f} cycles
-- Training data: NASA CMAPSS FD001 Ã¢â‚¬â€ turbofan degradation simulation, 100 training engines, 100 test engines, single-fault mode
+- Training data: NASA CMAPSS FD001 - turbofan degradation simulation, 100 training engines, 100 test engines, single-fault mode
 - RUL clipped at 125 cycles (healthy plateau normalization)
 
 YOUR FEATURE ENGINEERING:
-- 13 raw sensors Ã¢â€ â€™ 39 total features via 5-cycle sliding window
+- 13 raw sensors -> 39 total features via 5-cycle sliding window
 - avg_5 suffix = 5-cycle rolling mean (captures degradation trend)
 - std_5 suffix = 5-cycle rolling standard deviation (captures volatility / instability onset)
-- High std_5 on any thermal sensor = emerging instability BEFORE mean shifts Ã¢â‚¬â€ early warning signal
+- High std_5 on any thermal sensor = emerging instability BEFORE mean shifts - early warning signal
 
 YOUR MOST PREDICTIVE FEATURES (ranked by ensemble mean importance):
 {top_fi}
@@ -191,20 +191,20 @@ YOUR SENSOR REFERENCE:
 
 YOUR ARBITRATION ENGINE (Unified Verdict System):
 - ML RUL score      (weight 0.40): normalized degradation from RUL
-- Z-score anomaly   (weight 0.30): fraction of sensors > 2ÃÆ’ from fleet baseline
+- Z-score anomaly   (weight 0.30): fraction of sensors > 2 * sigma from fleet baseline
 - Physics violation (weight 0.20): thermodynamic/mechanical law breach
 - UQ width          (weight 0.10): confidence interval width (wider = higher uncertainty risk)
-- Combined score Ã¢â€ â€™ NOMINAL (<0.25) / ADVISORY (0.25-0.50) / WARNING (0.50-0.75) / CRITICAL (>0.75) / GROUNDED (physics fault)
+- Combined score -> NOMINAL (<0.25) / ADVISORY (0.25-0.50) / WARNING (0.50-0.75) / CRITICAL (>0.75) / GROUNDED (physics fault)
 
 YOUR PHYSICS CONSTRAINTS (inviolable):
-- T24 (s2, Fan Inlet) CANNOT exceed T30 (s3, LPC Outlet) Ã¢â‚¬â€ thermodynamic law
-- Fan speed (s7) CANNOT exceed 15,000 RPM Ã¢â‚¬â€ mechanical shatter limit
-- Any sensor reading Ã¢â€°Â¤ 0 = instrumentation failure (open circuit / short-to-ground)
+- T24 (s2, Fan Inlet) CANNOT exceed T30 (s3, LPC Outlet) - thermodynamic law
+- Fan speed (s7) CANNOT exceed 15,000 RPM - mechanical shatter limit
+- Any sensor reading <= 0 = instrumentation failure (open circuit / short-to-ground)
 
 CURRENT FLEET STATUS:
 - Total engines: {fleet_critical + fleet_warning + fleet_healthy}
-- CRITICAL  (RUL Ã¢â€°Â¤ 30): {fleet_critical}
-- WARNING   (RUL Ã¢â€°Â¤ 80): {fleet_warning}
+- CRITICAL  (RUL <= 30): {fleet_critical}
+- WARNING   (RUL <= 80): {fleet_warning}
 - NOMINAL              : {fleet_healthy}
 - Fleet Health Index   : {int(((fleet_warning * 0.5 + fleet_healthy) / max(fleet_critical + fleet_warning + fleet_healthy, 1)) * 100)}%
 
@@ -213,13 +213,13 @@ FULL FLEET TELEMETRY: {fleet_str}
 BEHAVIORAL RULES:
 - You speak like a senior aerospace engineer. Dense, precise, no filler.
 - When asked about your architecture, cite exact hyperparameters, RMSEs, feature importances.
-- When asked about a specific engine, use the fleet data above Ã¢â‚¬â€ do not fabricate numbers.
+- When asked about a specific engine, use the fleet data above - do not fabricate numbers.
 - When asked about sensor behavior, explain the thermodynamic/gas path physics behind it.
-- Never say "I think" or "I believe" Ã¢â‚¬â€ say "The model shows", "Telemetry indicates", "Arbitration score confirms".
+- Never say "I think" or "I believe" - say "The model shows", "Telemetry indicates", "Arbitration score confirms".
 - If a user asks for a maintenance recommendation, give a specific one (borescope, wash, bearing inspection, etc).
 - You are the most intelligent system this flight line has. Act like it."""
 
-# Ã¢â€â‚¬Ã¢â€â‚¬ Routes Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+# --- Routes ---
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -373,9 +373,9 @@ def analyze():
         prompt = (
             f"Engine telemetry report:\n"
             f"- Predicted RUL: {rul} cycles | Status: {status.upper()}\n"
-            f"- T24 Fan Inlet (s2): {sensors[0]:.2f}Ã‚Â°R\n"
-            f"- T30 LPC Outlet (s3): {sensors[1]:.2f}Ã‚Â°R\n"
-            f"- T50 HPC Outlet (s4): {sensors[2]:.2f}Ã‚Â°R\n"
+            f"- T24 Fan Inlet (s2): {sensors[0]:.2f} deg R\n"
+            f"- T30 LPC Outlet (s3): {sensors[1]:.2f} deg R\n"
+            f"- T50 HPC Outlet (s4): {sensors[2]:.2f} deg R\n"
             f"- Fan Speed Nf (s7): {sensors[4]:.1f} rpm\n"
             f"- HPC Pressure Ps30 (s11): {sensors[7]:.2f} psia\n\n"
             f"Provide a 2-3 sentence technical diagnosis. Identify which gas path component "
@@ -416,7 +416,7 @@ def fleet_alert():
                 for i, p in enumerate(predictions) if p <= 30]
         prompt = (
             f"You are ARIA, an aircraft health monitoring AI. "
-            f"Fleet status: {len(crit)} engines in CRITICAL state (RUL Ã¢â€°Â¤ 30 cycles). "
+            f"Fleet status: {len(crit)} engines in CRITICAL state (RUL <= 30 cycles). "
             f"Critical IDs: {[e['engine_id'] for e in crit[:3]]}. "
             f"Generate one professional 2-sentence fleet alert. "
             f"Calm, authoritative, precise. No preamble. Start directly."
@@ -503,6 +503,3 @@ def metadata():
 
 if __name__ == '__main__':
     app.run(debug=False, port=5000)
-
-
-
