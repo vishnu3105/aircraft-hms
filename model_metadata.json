@@ -21,15 +21,13 @@
     ],
     "temporal_window": 5,
     "rul_clip": 125,
-    "ensemble_rmse": 18.65,
-    "avg_ci_width_cycles": 9.07,
-    "avg_ensemble_std": 2.31
+    "ensemble_rmse": 18.65
   },
   "ensemble_nodes": [
     {
       "node_id": 0,
       "name": "DeepFastLearner",
-      "description": "High depth + moderate LR \u2014 captures complex non-linear degradation curves",
+      "description": "High depth + moderate LR",
       "params": {
         "n_estimators": 300,
         "max_depth": 6,
@@ -87,7 +85,7 @@
     {
       "node_id": 1,
       "name": "ShallowSlowLearner",
-      "description": "Low depth + low LR + high n \u2014 biased toward smooth, generalizable trends",
+      "description": "Low depth + low LR + high n",
       "params": {
         "n_estimators": 500,
         "max_depth": 3,
@@ -145,7 +143,7 @@
     {
       "node_id": 2,
       "name": "WideAggressive",
-      "description": "High depth + high LR \u2014 captures sharp regime transitions near end-of-life",
+      "description": "High depth + high LR",
       "params": {
         "n_estimators": 200,
         "max_depth": 8,
@@ -203,7 +201,7 @@
     {
       "node_id": 3,
       "name": "RegularizedConservative",
-      "description": "Heavy regularization + gamma pruning \u2014 pessimistic, prevents overconfidence",
+      "description": "Heavy regularization",
       "params": {
         "n_estimators": 400,
         "max_depth": 4,
@@ -262,7 +260,7 @@
     {
       "node_id": 4,
       "name": "BalancedPrecision",
-      "description": "Mid-range all params \u2014 anchors the ensemble mean near the true RUL",
+      "description": "Mid-range all params",
       "params": {
         "n_estimators": 350,
         "max_depth": 5,
@@ -361,19 +359,19 @@
     "s6": 0.0003
   },
   "sensor_labels": {
-    "s2": "T24 \u2014 Fan Inlet Temperature (\u00b0R)",
-    "s3": "T30 \u2014 LPC Outlet Temperature (\u00b0R)",
-    "s4": "T50 \u2014 HPC Outlet Temperature (\u00b0R)",
-    "s6": "P30 \u2014 Total Hydraulic Pressure (psia)",
-    "s7": "Nf  \u2014 Physical Fan Speed (rpm)",
-    "s8": "Nc  \u2014 Physical Core Speed (rpm) [Bypass Ratio proxy]",
-    "s9": "epr \u2014 Engine Pressure Ratio",
-    "s11": "Ps30 \u2014 HPC Outlet Static Pressure (psia)",
-    "s12": "phi \u2014 Fuel-Air Ratio (pps/psi)",
-    "s13": "NRf \u2014 Corrected Fan Speed",
-    "s14": "NRc \u2014 Corrected Core Speed",
-    "s15": "BPR \u2014 Bypass Ratio",
-    "s17": "bleed \u2014 HPT Coolant Bleed"
+    "s2": "T24 - Fan Inlet Temperature (deg R)",
+    "s3": "T30 - LPC Outlet Temperature (deg R)",
+    "s4": "T50 - HPC Outlet Temperature (deg R)",
+    "s6": "P30 - Total Hydraulic Pressure (psia)",
+    "s7": "Nf  - Physical Fan Speed (rpm)",
+    "s8": "Nc  - Physical Core Speed (rpm)",
+    "s9": "epr - Engine Pressure Ratio",
+    "s11": "Ps30 - HPC Outlet Static Pressure (psia)",
+    "s12": "phi - Fuel-Air Ratio (pps/psi)",
+    "s13": "NRf - Corrected Fan Speed",
+    "s14": "NRc - Corrected Core Speed",
+    "s15": "BPR - Bypass Ratio",
+    "s17": "bleed - HPT Coolant Bleed"
   },
   "fleet_temporal_mean": {
     "s2_avg_5": 642.6682,

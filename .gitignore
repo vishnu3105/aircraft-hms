@@ -30,3 +30,4 @@ __pycache__/
 feature_names.txt
 model_ens_*.pkl
 model_metadata.json
+.env
