@@ -1,17 +1,30 @@
 const BASE_URL = '/api';
 
+function checkResponse(res) {
+  if (!res.ok) {
+    return res.json().catch(() => ({})).then(body => {
+      throw new Error(body.error || `HTTP ${res.status}`);
+    });
+  }
+  return res.json();
+}
+
 export const demoApi = {
   getEngines: async () => {
     const res = await fetch(`${BASE_URL}/engines`);
-    return await res.json();
+    return checkResponse(res);
   },
   getAnomalies: async () => {
     const res = await fetch(`${BASE_URL}/anomalies`);
-    return await res.json();
+    return checkResponse(res);
   },
   getFleetAlert: async () => {
     const res = await fetch(`${BASE_URL}/fleet_alert`);
-    return await res.json();
+    return checkResponse(res);
+  },
+  getMetadata: async () => {
+    const res = await fetch(`${BASE_URL}/metadata`);
+    return checkResponse(res);
   },
   predictEngine: async (sensors) => {
     const res = await fetch(`${BASE_URL}/predict`, {
@@ -19,7 +32,7 @@ export const demoApi = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ sensors })
     });
-    return await res.json();
+    return checkResponse(res);
   },
   analyzeEngine: async (rul, status, sensors) => {
     const res = await fetch(`${BASE_URL}/analyze`, {
@@ -27,18 +40,22 @@ export const demoApi = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ rul, status, sensors })
     });
-    return await res.json();
+    return checkResponse(res);
   },
-  chatWithAria: async (message) => {
+  chatWithAria: async (message, session_id) => {
     const res = await fetch(`${BASE_URL}/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message })
+      body: JSON.stringify({ message, session_id })
     });
-    return await res.json();
+    return checkResponse(res);
   },
-  resetChat: async () => {
-    const res = await fetch(`${BASE_URL}/reset_chat`, { method: 'POST' });
-    return await res.json();
+  resetChat: async (session_id) => {
+    const res = await fetch(`${BASE_URL}/reset_chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ session_id })
+    });
+    return checkResponse(res);
   }
 };

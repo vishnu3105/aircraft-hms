@@ -101,7 +101,7 @@ export default function ScrollyTelling() {
           >
             <h2 className="font-syne text-gradient" style={{ fontSize: isMobile ? '3rem' : '4.5rem', marginBottom: '1.5rem', lineHeight: 1 }}>Every engine.<br/>Every cycle.<br/>Every decision.</h2>
             <div className="font-mono" style={{ backgroundColor: 'rgba(5,5,8,0.7)', border: '1px solid rgba(255,107,0,0.3)', padding: '0.75rem 2rem', borderRadius: '4px', marginBottom: '2rem', color: 'var(--accent-secondary)', fontSize: isMobile ? '0.7rem' : '0.9rem', backdropFilter: 'blur(4px)', display: 'inline-block' }}>
-              RMSE: 18.06 cycles &middot; NASA CMAPSS{isMobile ? <br/> : ' \u00B7 '}XGBoost &middot; LLaMA 3.3 70B
+              RMSE: 18.65 cycles &middot; NASA CMAPSS{isMobile ? <br/> : ' \u00B7 '}XGBoost &middot; LLaMA 3.3 70B
             </div>
             <p style={{ maxWidth: '700px', fontSize: isMobile ? '1rem' : '1.2rem', color: 'var(--text-secondary)', lineHeight: 1.6, margin: '0 auto' }}>Fleet health scored. Maintenance scheduled. Pre-sortie clearance issued. ARIA handles the analysis so engineers handle the mission.</p>
           </motion.div>

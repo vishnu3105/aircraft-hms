@@ -20,7 +20,7 @@ export default function BottomSections() {
         <span style={{color: 'var(--accent-primary)'}}>|</span>
         <span>DATASET: NASA CMAPSS FD001</span>
         <span style={{color: 'var(--accent-primary)'}}>|</span>
-        <span>RMSE: 18.06 cycles</span>
+        <span>RMSE: 18.65 cycles</span>
         <span style={{color: 'var(--accent-primary)'}}>|</span>
         <span>CONFIDENCE: 95% CI</span>
         <span style={{color: 'var(--accent-primary)'}}>|</span>
@@ -49,7 +49,7 @@ export default function BottomSections() {
           {/* Card 3 */}
           <div style={{ backgroundColor: 'var(--bg-secondary)', padding: '2rem', borderLeft: '4px solid var(--glow-deep)', position: 'relative', overflow: 'hidden' }}>
             <h4 className="font-syne" style={{ fontSize: '1.5rem', marginBottom: '1rem', color: 'var(--text-primary)' }}>Aerospace Research</h4>
-            <p style={{ color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: '2rem' }}>Built on NASA CMAPSS turbofan data. XGBoost achieving RMSE 18.06. Open for academic collaboration.</p>
+            <p style={{ color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: '2rem' }}>Built on NASA CMAPSS turbofan data. XGBoost achieving RMSE 18.65. Open for academic collaboration.</p>
             <div className="font-mono" style={{ color: 'var(--glow-deep)', fontSize: '0.8rem' }}>TAG: NASA · IIT · NIT</div>
           </div>
         </div>

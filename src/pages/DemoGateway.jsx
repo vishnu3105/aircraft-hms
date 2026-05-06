@@ -15,7 +15,7 @@ export default function DemoGateway() {
           </div>
         </div>
         <div style={{ textAlign: 'right' }}>
-           <Link to="/" style={{ color: '#888', textDecoration: 'none', fontSize: '0.75rem', border: '1px solid #2a2a2e', padding: '0.4rem 0.8rem', backgroundColor: '#141416', transition: 'background-color 0.2s', ...{ ':hover': { backgroundColor: '#202024' } } }}>
+           <Link to="/" style={{ color: '#888', textDecoration: 'none', fontSize: '0.75rem', border: '1px solid #2a2a2e', padding: '0.4rem 0.8rem', backgroundColor: '#141416', transition: 'background-color 0.2s' }}>
              &larr; ABORT DISCONNECT
            </Link>
         </div>
