@@ -1,5 +1,5 @@
-aircraft/
 __pycache__/
-*.pkl
+model.pkl
 *.pyc
-feature_names.txt 
+feature_names.txt
+# model_ens_*.pkl and model_metadata.json are now allowed
