@@ -1,4 +1,4 @@
-﻿from flask import Flask, render_template, jsonify, request
+from flask import Flask, render_template, jsonify, request
 from flask_cors import CORS
 import pandas as pd
 import numpy as np
@@ -37,7 +37,7 @@ models = []
 for i in range(5):
     with open(f'model_ens_{i}.pkl', 'rb') as f:
         models.append(pickle.load(f))
-print(f"Ã¢Å“â€œ {len(models)} ensemble nodes loaded.")
+print(f"[OK] {len(models)} ensemble nodes loaded.")
 
 # Ã¢â€â‚¬Ã¢â€â‚¬ Load Metadata Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 print("Loading model metadata...")
@@ -155,7 +155,7 @@ def build_aria_system_prompt(fleet_critical, fleet_warning, fleet_healthy, fleet
     node_details = "\n".join([
         f"  Node {n['node_id']} [{n['name']}]: depth={n['params']['max_depth']}, "
         f"lr={n['params']['learning_rate']}, n_est={n['params']['n_estimators']}, "
-        f"subsample={n['params']['subsample']} Ã¢â€ â€™ RMSE={n['rmse']} cycles"
+        f"subsample={n['params']['subsample']} -> RMSE={n['rmse']} cycles"
         for n in META['ensemble_nodes']
     ])
     top_fi = "\n".join([
