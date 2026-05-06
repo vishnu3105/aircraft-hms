@@ -1,4 +1,4 @@
-from flask import Flask, render_template, jsonify, request
+from flask import Flask, render_template, jsonify, request, send_from_directory
 from flask_cors import CORS
 import pandas as pd
 import numpy as np
@@ -20,7 +20,7 @@ try:
 except Exception as e:
     print(f"[!] Groq init failed: {e} - ARIA LLM features disabled.")
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder='dist', static_url_path='/')
 CORS(app, origins=["http://localhost:5173", "http://localhost:3000", "http://localhost:5000"])
 
 # --- Schema ---
@@ -222,6 +222,10 @@ BEHAVIORAL RULES:
 # --- Routes ---
 @app.route('/')
 def index():
+    return send_from_directory(app.static_folder, 'index.html')
+
+@app.route('/dashboard')
+def dashboard():
     return render_template('index.html')
 
 @app.route('/engines')
