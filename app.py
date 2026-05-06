@@ -228,7 +228,7 @@ def index():
 def dashboard():
     return render_template('index.html')
 
-@app.route('/engines')
+@app.route('/api/engines')
 def engines():
     data = []
     for i, (pred, actual, low, high, std_val) in enumerate(
@@ -304,7 +304,7 @@ def engines():
         })
     return jsonify(data)
 
-@app.route('/predict', methods=['POST'])
+@app.route('/api/predict', methods=['POST'])
 def predict():
     try:
         body = request.get_json(force=True, silent=True)
@@ -361,7 +361,7 @@ def predict():
     except Exception:
         return jsonify({'error': 'Prediction failed', 'detail': traceback.format_exc(), 'status': 'server_error'}), 500
 
-@app.route('/analyze', methods=['POST'])
+@app.route('/api/analyze', methods=['POST'])
 def analyze():
     if not groq_available:
         return jsonify({'error': 'ARIA Intelligence Node offline. GROQ_API_KEY not configured.'}), 503
@@ -396,7 +396,7 @@ def analyze():
     except Exception:
         return jsonify({'error': 'Analysis failed', 'detail': traceback.format_exc()}), 500
 
-@app.route('/anomalies')
+@app.route('/api/anomalies')
 def anomalies():
     anomaly_data = []
     for idx, row in X_test.iterrows():
@@ -411,7 +411,7 @@ def anomalies():
             })
     return jsonify(sorted(anomaly_data, key=lambda x: x['severity'], reverse=True)[:10])
 
-@app.route('/fleet_alert')
+@app.route('/api/fleet_alert')
 def fleet_alert():
     if not groq_available:
         return jsonify({'message': 'ARIA INTELLIGENCE NODE OFFLINE. API key not configured.'}), 503
@@ -434,7 +434,7 @@ def fleet_alert():
     except Exception:
         return jsonify({'error': 'Fleet alert failed'}), 500
 
-@app.route('/chat', methods=['POST'])
+@app.route('/api/chat', methods=['POST'])
 def chat():
     if not groq_available:
         return jsonify({'response': '[ARIA OFFLINE] Intelligence node unavailable. Configure GROQ_API_KEY.'}), 503
@@ -484,7 +484,7 @@ def chat():
     except Exception:
         return jsonify({'response': f'[ERR] {traceback.format_exc()}'}), 500
 
-@app.route('/reset_chat', methods=['POST'])
+@app.route('/api/reset_chat', methods=['POST'])
 def reset_chat():
     try:
         body = request.get_json(force=True, silent=True) or {}
@@ -494,7 +494,7 @@ def reset_chat():
     except Exception:
         return jsonify({'status': 'reset'})
 
-@app.route('/metadata')
+@app.route('/api/metadata')
 def metadata():
     """Expose model metadata to frontend for ARIA self-awareness display."""
     return jsonify({
