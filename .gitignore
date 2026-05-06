@@ -25,9 +25,11 @@ dist-ssr
 
 # Python / ML
 __pycache__/
-*.pkl
+model.pkl
+model_10.pkl
+model_50.pkl
+model_90.pkl
 *.pyc
 feature_names.txt
-model_ens_*.pkl
-model_metadata.json
+# model_ens_*.pkl and model_metadata.json are now allowed for deployment
 .env
